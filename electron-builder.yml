@@ -1,0 +1,44 @@
+appId: com.nmtr.app
+productName: nmtr
+copyright: "Copyright © 2024"
+
+directories:
+  buildResources: build
+  output: dist-release
+
+files:
+  - out/**/*
+  - "!out/**/*.map"
+
+extraResources:
+  - from: resources/
+    to: .
+    filter: ["tray-icon.png"]
+
+asar: true
+asarUnpack:
+  - "node_modules/pingus/**/*"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: build/icon.ico
+  requestedExecutionLevel: requireAdministrator
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: nmtr
+
+publish:
+  provider: github
+  owner: placeholder
+  repo: nmtr
+  releaseType: release
