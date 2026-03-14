@@ -6,6 +6,7 @@ import { ExportMenu } from '../controls/ExportMenu'
 import { WhoisDialog } from '../dialogs/WhoisDialog'
 import { LatencyDetailDialog } from '../dialogs/LatencyDetailDialog'
 import { StatusBar } from '../layout/StatusBar'
+import { PlaybackBar } from '../playback/PlaybackBar'
 
 export function TraceView(): React.JSX.Element {
   const { sessions, activeSessionId } = useTraceStore()
@@ -43,6 +44,11 @@ export function TraceView(): React.JSX.Element {
         />
       ) : (
         <EmptyState />
+      )}
+
+      {/* Playback bar — shown only for playback sessions */}
+      {session?.isPlayback && activeSessionId && (
+        <PlaybackBar sessionId={activeSessionId} />
       )}
 
       {/* Status bar */}

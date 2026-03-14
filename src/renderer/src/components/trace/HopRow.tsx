@@ -28,7 +28,7 @@ function HopRowInner({ hop, onWhois, onLatencyClick }: HopRowProps): React.JSX.E
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>
-        <tr className="border-b border-border-muted hover:bg-slate-800/40 font-table text-base group">
+        <tr className="border-b border-border-muted hover:bg-canvas-hover font-table text-base group">
           <td className="px-3 py-1.5 text-fg-muted overflow-hidden">{hop.hopIndex}</td>
 
           {/* Hostname / IP */}

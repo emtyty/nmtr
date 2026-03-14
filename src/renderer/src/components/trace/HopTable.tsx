@@ -9,19 +9,19 @@ interface ColDef {
 }
 
 const COLUMNS: ColDef[] = [
-  { label: '#', defaultWidth: 42, minWidth: 32 },
-  { label: 'Hostname / IP', defaultWidth: 210, minWidth: 120 },
-  { label: 'AS / ISP', defaultWidth: 160, minWidth: 100 },
-  { label: 'Geo', defaultWidth: 120, minWidth: 80 },
-  { label: 'Loss%', defaultWidth: 72, minWidth: 55 },
-  { label: 'Sent', defaultWidth: 58, minWidth: 42 },
-  { label: 'Recv', defaultWidth: 58, minWidth: 42 },
-  { label: 'Best', defaultWidth: 68, minWidth: 50 },
-  { label: 'Avg', defaultWidth: 68, minWidth: 50 },
-  { label: 'Worst', defaultWidth: 68, minWidth: 50 },
-  { label: 'Last', defaultWidth: 68, minWidth: 50 },
-  { label: 'Jitter', defaultWidth: 68, minWidth: 50 },
-  { label: 'Latency', defaultWidth: 130, minWidth: 80 }
+  { label: '#', defaultWidth: 63, minWidth: 48 },
+  { label: 'Hostname / IP', defaultWidth: 315, minWidth: 180 },
+  { label: 'AS / ISP', defaultWidth: 240, minWidth: 150 },
+  { label: 'Geo', defaultWidth: 180, minWidth: 120 },
+  { label: 'Loss%', defaultWidth: 108, minWidth: 83 },
+  { label: 'Sent', defaultWidth: 87, minWidth: 63 },
+  { label: 'Recv', defaultWidth: 87, minWidth: 63 },
+  { label: 'Best', defaultWidth: 102, minWidth: 75 },
+  { label: 'Avg', defaultWidth: 102, minWidth: 75 },
+  { label: 'Worst', defaultWidth: 102, minWidth: 75 },
+  { label: 'Last', defaultWidth: 102, minWidth: 75 },
+  { label: 'Jitter', defaultWidth: 102, minWidth: 75 },
+  { label: 'Latency', defaultWidth: 195, minWidth: 120 }
 ]
 
 interface HopTableProps {

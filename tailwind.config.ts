@@ -13,7 +13,8 @@ const config: Config = {
         canvas: {
           default: '#0d1117',
           subtle: '#161b22',
-          inset: '#010409'
+          inset: '#010409',
+          hover: '#1a2030'
         },
         border: {
           default: '#30363d',

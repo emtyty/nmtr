@@ -164,6 +164,7 @@ export interface RecordingStopResult {
 }
 
 export interface PlaybackOpenResult {
+  sessionId: string
   filePath: string
   meta: RecordingMeta
   durationMs: number

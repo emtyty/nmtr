@@ -1,6 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { SettingsDialog } from '../dialogs/SettingsDialog'
 
 export function TitleBar(): React.JSX.Element {
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
   return (
     <div className="drag-region flex h-9 items-center justify-between bg-canvas-subtle border-b border-border-default px-4 flex-shrink-0 select-none">
       {/* Left: logo + subtitle */}
@@ -9,24 +12,36 @@ export function TitleBar(): React.JSX.Element {
         <span className="text-fg-muted text-base">Network Diagnostic Tool</span>
       </div>
 
-      {/* Right: window control buttons */}
-      <div className="flex items-center gap-2 no-drag">
+      {/* Right: settings gear + window controls */}
+      <div className="flex items-center gap-3 no-drag">
         <button
-          className="w-3 h-3 rounded-full bg-[#febc2e] hover:opacity-80 transition-opacity"
-          onClick={() => window.nmtrAPI.windowMinimize()}
-          title="Minimize"
-        />
-        <button
-          className="w-3 h-3 rounded-full bg-[#28c840] hover:opacity-80 transition-opacity"
-          onClick={() => window.nmtrAPI.windowMaximize()}
-          title="Maximize"
-        />
-        <button
-          className="w-3 h-3 rounded-full bg-[#ff5f57] hover:opacity-80 transition-opacity"
-          onClick={() => window.nmtrAPI.windowClose()}
-          title="Close"
-        />
+          className="text-fg-muted hover:text-fg-default transition-colors text-base leading-none"
+          onClick={() => setSettingsOpen(true)}
+          title="Settings"
+        >
+          ⚙
+        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            className="w-3 h-3 rounded-full bg-[#febc2e] hover:opacity-80 transition-opacity"
+            onClick={() => window.nmtrAPI.windowMinimize()}
+            title="Minimize"
+          />
+          <button
+            className="w-3 h-3 rounded-full bg-[#28c840] hover:opacity-80 transition-opacity"
+            onClick={() => window.nmtrAPI.windowMaximize()}
+            title="Maximize"
+          />
+          <button
+            className="w-3 h-3 rounded-full bg-[#ff5f57] hover:opacity-80 transition-opacity"
+            onClick={() => window.nmtrAPI.windowClose()}
+            title="Close"
+          />
+        </div>
       </div>
+
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   )
 }

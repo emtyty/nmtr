@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useTraceStore } from '../../store/useTraceStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
+import { useRecordingStore } from '../../store/useRecordingStore'
 import type { TraceConfig, Protocol } from '@shared/types'
 
 interface TraceControlsProps {
@@ -10,6 +11,7 @@ interface TraceControlsProps {
 export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Element {
   const { sessions, addSession, setActive } = useTraceStore()
   const { settings } = useSettingsStore()
+  const { isRecording, recordingSessionId, setRecording, clearRecording } = useRecordingStore()
 
   const [target, setTarget] = useState('')
   const [protocol, setProtocol] = useState<Protocol>('icmp')
@@ -20,6 +22,7 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
 
   const session = sessionId ? sessions[sessionId] : null
   const isRunning = session?.status === 'running'
+  const isThisSessionRecording = isRecording && recordingSessionId === sessionId
 
   async function handleStart(): Promise<void> {
     if (!target.trim()) return
@@ -53,6 +56,18 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
   function handleReset(): void {
     if (!sessionId) return
     window.nmtrAPI.traceReset({ sessionId })
+  }
+
+  async function handleRecordToggle(): Promise<void> {
+    if (!sessionId) return
+    if (isThisSessionRecording) {
+      await window.nmtrAPI.recordingStop({ sessionId })
+      clearRecording()
+    } else {
+      // filePath empty → main process shows save dialog
+      await window.nmtrAPI.recordingStart({ sessionId, filePath: '' })
+      setRecording(sessionId)
+    }
   }
 
   return (
@@ -158,6 +173,21 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
           onClick={handleReset}
         >
           Reset
+        </button>
+      )}
+
+      {/* Record button — only while a live (non-playback) session is running */}
+      {isRunning && !session?.isPlayback && !loading && (
+        <button
+          className={`text-base px-3 py-1.5 rounded border transition-colors ${
+            isThisSessionRecording
+              ? 'border-red-500 text-red-400 hover:bg-red-500/10'
+              : 'border-border-default text-fg-muted hover:border-red-500 hover:text-red-400'
+          }`}
+          onClick={handleRecordToggle}
+          title={isThisSessionRecording ? 'Stop Recording' : 'Record session to .nmtr file'}
+        >
+          {isThisSessionRecording ? '⏹ Stop Rec' : '⏺ Rec'}
         </button>
       )}
 

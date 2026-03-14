@@ -1,5 +1,6 @@
 import { useEffect, useRef, startTransition } from 'react'
 import { useTraceStore } from '../store/useTraceStore'
+import { useRecordingStore } from '../store/useRecordingStore'
 import type { HopStats } from '@shared/types'
 
 /**
@@ -58,6 +59,12 @@ export function useTraceSession(): void {
         const s = useTraceStore.getState()
         s.replaceAllHops(e.sessionId, e.frame.hops)
         s.updateStatus(e.sessionId, 'running', e.frame.t, 0)
+        const rec = useRecordingStore.getState()
+        rec.updatePlaybackPosition(e.frame.t)
+        // Auto-stop playing state when last frame arrives
+        if (e.frameIndex >= e.frameCount - 1) {
+          rec.setPlaying(false)
+        }
       })
     ]
 
