@@ -27,10 +27,11 @@ export function ExportMenu({ sessionId }: ExportMenuProps): React.JSX.Element {
           sideOffset={4}
         >
           <DropdownMenu.Item
-            className="px-3 py-2 text-fg-default hover:bg-slate-700 cursor-pointer outline-none"
+            className="px-3 py-2 text-fg-default hover:bg-slate-700 cursor-pointer outline-none flex items-center justify-between gap-4"
             onSelect={() => handleExport('text')}
           >
-            Copy as Text
+            <span>Copy as Text</span>
+            <span className="text-fg-subtle text-xs">Ctrl+E</span>
           </DropdownMenu.Item>
           <DropdownMenu.Item
             className="px-3 py-2 text-fg-default hover:bg-slate-700 cursor-pointer outline-none"

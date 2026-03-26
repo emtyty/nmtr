@@ -5,7 +5,8 @@ import type {
   TraceConfig,
   HopStats,
   SessionStatus,
-  EnrichmentData
+  EnrichmentData,
+  RouteChangeEvent
 } from '@shared/types'
 
 interface TraceState {
@@ -24,6 +25,8 @@ interface TraceState {
   updateStatus: (sessionId: string, status: SessionStatus, elapsedMs: number, totalSent: number) => void
   replaceAllHops: (sessionId: string, hops: HopStats[]) => void
   addPlaybackSession: (id: string, config: TraceConfig) => void
+  addRouteEvent: (sessionId: string, event: RouteChangeEvent) => void
+  clearRouteEvents: (sessionId: string) => void
 }
 
 export const useTraceStore = create<TraceState>((set) => ({
@@ -43,7 +46,9 @@ export const useTraceStore = create<TraceState>((set) => ({
           elapsedMs: 0,
           totalSent: 0,
           isPlayback: false,
-          engineMode
+          engineMode,
+          routeEvents: [],
+          rttHistory: []
         }
       },
       activeSessionId: id
@@ -90,7 +95,10 @@ export const useTraceStore = create<TraceState>((set) => ({
         })
       }
       const newHops = Array.from(hopMap.values()).sort((a, b) => a.hopIndex - b.hopIndex)
-      return { sessions: { ...state.sessions, [sessionId]: { ...session, hops: newHops } } }
+      // Append final-hop RTT to history (highest hopIndex with a non-null last value)
+      const finalHop = [...newHops].reverse().find((h) => h.last !== null)
+      const newRttHistory = [...session.rttHistory, finalHop?.last ?? null].slice(-300)
+      return { sessions: { ...state.sessions, [sessionId]: { ...session, hops: newHops, rttHistory: newRttHistory } } }
     }),
 
   addHop: (sessionId, hopIndex, ip) =>
@@ -151,7 +159,30 @@ export const useTraceStore = create<TraceState>((set) => ({
     set((state) => {
       const session = state.sessions[sessionId]
       if (!session) return state
-      return { sessions: { ...state.sessions, [sessionId]: { ...session, hops } } }
+      const finalHop = [...hops].reverse().find((h) => h.last !== null)
+      const newRttHistory = [...session.rttHistory, finalHop?.last ?? null].slice(-300)
+      return { sessions: { ...state.sessions, [sessionId]: { ...session, hops, rttHistory: newRttHistory } } }
+    }),
+
+  addRouteEvent: (sessionId, event) =>
+    set((state) => {
+      const session = state.sessions[sessionId]
+      if (!session) return state
+      return {
+        sessions: {
+          ...state.sessions,
+          [sessionId]: { ...session, routeEvents: [...session.routeEvents, event] }
+        }
+      }
+    }),
+
+  clearRouteEvents: (sessionId) =>
+    set((state) => {
+      const session = state.sessions[sessionId]
+      if (!session) return state
+      return {
+        sessions: { ...state.sessions, [sessionId]: { ...session, routeEvents: [], rttHistory: [] } }
+      }
     }),
 
   addPlaybackSession: (id, config) =>
@@ -167,7 +198,9 @@ export const useTraceStore = create<TraceState>((set) => ({
           elapsedMs: 0,
           totalSent: 0,
           isPlayback: true,
-          engineMode: 'native'
+          engineMode: 'native',
+          routeEvents: [],
+          rttHistory: []
         }
       },
       activeSessionId: id

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useTraceStore } from '../../store/useTraceStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useRecordingStore } from '../../store/useRecordingStore'
@@ -57,6 +57,25 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
     if (!sessionId) return
     window.nmtrAPI.traceReset({ sessionId })
   }
+
+  // Wrap in useCallback so the useEffect dependency array stays stable
+  const stableHandleStart = useCallback(handleStart, [target, protocol, port, intervalMs, useIPv6, settings])
+  const stableHandleStop = useCallback(handleStop, [sessionId])
+
+  // Ctrl+Enter: start or stop — lives here because `target` is local state
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent): void {
+      if (!e.ctrlKey || e.key !== 'Enter') return
+      e.preventDefault()
+      if (isRunning) {
+        stableHandleStop()
+      } else if (!loading) {
+        stableHandleStart()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isRunning, loading, stableHandleStart, stableHandleStop])
 
   async function handleRecordToggle(): Promise<void> {
     if (!sessionId) return
@@ -155,6 +174,7 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
           className="bg-[#238636] hover:bg-[#2ea043] text-white text-base font-semibold px-4 py-1.5 rounded transition-colors disabled:opacity-50"
           onClick={handleStart}
           disabled={!target.trim()}
+          title="Start trace (Ctrl+Enter)"
         >
           ▶ Start
         </button>
@@ -162,6 +182,7 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
         <button
           className="bg-[#da3633] hover:bg-[#f85149] text-white text-base font-semibold px-4 py-1.5 rounded transition-colors"
           onClick={handleStop}
+          title="Stop trace (Ctrl+Enter)"
         >
           ■ Stop
         </button>
@@ -171,6 +192,7 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
         <button
           className="text-base px-3 py-1.5 rounded border border-border-default text-fg-muted hover:border-fg-muted hover:text-fg-default transition-colors"
           onClick={handleReset}
+          title="Reset stats (Ctrl+R)"
         >
           Reset
         </button>

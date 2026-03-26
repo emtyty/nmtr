@@ -2,6 +2,12 @@ import { spawn } from 'child_process'
 import type { IProberEngine } from './IProberEngine'
 import type { ProbeOptions, ProbeResult } from '../../../shared/types'
 
+// p-queue v8 is ESM-only; use CJS interop (same pattern as GeoIPLookup)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const PQueueMod = require('p-queue')
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const PQueue: typeof import('p-queue').default = (PQueueMod as any).default ?? PQueueMod
+
 /**
  * NativeEngine — fallback when process is not elevated.
  * Uses Windows built-in `ping.exe` with -i (TTL) flag for per-hop RTT.
@@ -13,6 +19,8 @@ import type { ProbeOptions, ProbeResult } from '../../../shared/types'
 export class NativeEngine implements IProberEngine {
   // Cache of discovered hop IPs by TTL (populated by discoverHops)
   private hopCache: Map<number, string> = new Map()
+  // Cap concurrent ping.exe child processes to avoid spawning 30 at once
+  private readonly probeQueue = new PQueue({ concurrency: 8 })
 
   /**
    * One-shot tracert discovery to pre-populate hopCache.
@@ -48,6 +56,10 @@ export class NativeEngine implements IProberEngine {
   }
 
   async probe(target: string, ttl: number, opts: ProbeOptions): Promise<ProbeResult> {
+    return this.probeQueue.add(() => this.spawnProbe(target, ttl, opts)) as Promise<ProbeResult>
+  }
+
+  private spawnProbe(target: string, ttl: number, opts: ProbeOptions): Promise<ProbeResult> {
     return new Promise((resolve, reject) => {
       // ping.exe -i <TTL> -n 1 -w <timeout> <target>
       const args = ['-i', String(ttl), '-n', '1', '-w', String(opts.timeoutMs), target]
@@ -58,31 +70,51 @@ export class NativeEngine implements IProberEngine {
       child.stderr.on('data', (d: Buffer) => (output += d.toString()))
 
       child.on('close', () => {
-        // Match RTT from: "Reply from 1.2.3.4: bytes=32 time=5ms TTL=57"
-        // Or TTL-exceeded: "Reply from 1.2.3.4: TTL expired in transit."
-        const replyMatch = output.match(/Reply from ([\d.]+):.*?time[=<](\d+)ms/i)
-        const ttlExpiredMatch = output.match(/Reply from ([\d.]+):.*TTL expired/i)
-        const timeoutMatch = output.match(/Request timed out|100% loss/i)
+        // Locale-agnostic parsing — Windows ping output varies by system language.
+        // Strategy:
+        //   Echo reply   → line contains an IP address AND an RTT value (=Nms or <Nms)
+        //   TTL-exceeded → line contains an IP address but NO RTT value
+        //   Timeout      → no IP address found anywhere in the output
+        //
+        // We skip the first non-empty line ("Pinging X …") to avoid matching the target IP
+        // as the reply source.
+        const lines = output.split('\n')
+        const headerIP = lines[0]?.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)?.[1]
 
-        if (replyMatch) {
-          const fromIP = replyMatch[1]
-          const rttMs = parseInt(replyMatch[2], 10)
-          // If fromIP === target → final hop, else intermediate
-          const isFinalHop = fromIP === target
-          resolve({ fromIP, rttMs, isFinalHop, hopIndex: ttl })
-        } else if (ttlExpiredMatch) {
-          const fromIP = ttlExpiredMatch[1]
-          // Use cached hop IP if available, otherwise use what ping reports
+        const IP_RE = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/
+        const RTT_RE = /[=<](\d+)\s*ms/i
+
+        let replyIP: string | null = null
+        let replyRtt: number | null = null
+        let ttlExpiredIP: string | null = null
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i]
+          const ipM = line.match(IP_RE)
+          if (!ipM) continue
+          const ip = ipM[1]
+          if (ip === headerIP) continue // skip header/stats lines that echo target IP
+
+          const rttM = line.match(RTT_RE)
+          if (rttM) {
+            replyIP = ip
+            replyRtt = parseInt(rttM[1], 10)
+            break // echo reply — done
+          } else if (!ttlExpiredIP) {
+            ttlExpiredIP = ip // first IP-only line = TTL-exceeded
+          }
+        }
+
+        if (replyIP !== null && replyRtt !== null) {
+          // Successful echo reply → always the final destination
+          resolve({ fromIP: replyIP, rttMs: replyRtt, isFinalHop: true, hopIndex: ttl })
+        } else if (ttlExpiredIP !== null) {
           resolve({
-            fromIP: this.hopCache.get(ttl) ?? fromIP,
-            rttMs: 0, // TTL-expired doesn't give reliable RTT
+            fromIP: this.hopCache.get(ttl) ?? ttlExpiredIP,
+            rttMs: 0, // TTL-exceeded replies don't carry usable RTT
             isFinalHop: false,
             hopIndex: ttl
           })
-        } else if (timeoutMatch) {
-          const err = new Error('timeout')
-          ;(err as any).code = 'TIMEOUT'
-          reject(err)
         } else {
           const err = new Error('timeout')
           ;(err as any).code = 'TIMEOUT'
@@ -95,6 +127,6 @@ export class NativeEngine implements IProberEngine {
   }
 
   destroy(): void {
-    // No persistent handles
+    this.probeQueue.clear()
   }
 }

@@ -8,6 +8,9 @@ interface HopRowProps {
   onWhois: (ip: string) => void
   // Takes hopIndex so HopTable can pass the stable setter directly (no inline wrapper)
   onLatencyClick: (hopIndex: number) => void
+  hasRouteChange?: boolean
+  isBottleneck?: boolean
+  bottleneckDelta?: number
 }
 
 function lossClass(loss: number): string {
@@ -21,15 +24,35 @@ function fmtMs(v: number | null): string {
   return v.toFixed(1)
 }
 
-function HopRowInner({ hop, onWhois, onLatencyClick }: HopRowProps): React.JSX.Element {
+function HopRowInner({ hop, onWhois, onLatencyClick, hasRouteChange, isBottleneck, bottleneckDelta }: HopRowProps): React.JSX.Element {
   const hostDisplay = hop.hostname ?? hop.ip ?? '* * *'
   const isTimeout = hop.ip === null
 
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>
-        <tr className="border-b border-border-muted hover:bg-canvas-hover font-table text-base group">
-          <td className="px-3 py-1.5 text-fg-muted overflow-hidden">{hop.hopIndex}</td>
+        <tr className={`border-b border-border-muted hover:bg-canvas-hover font-table text-base group${isBottleneck ? ' bg-yellow-500/5' : ''}`}>
+          <td className="px-3 py-1.5 text-fg-muted overflow-hidden">
+            <div className="flex items-center gap-1">
+              <span>{hop.hopIndex}</span>
+              {hasRouteChange && (
+                <span
+                  className="text-accent-orange text-xs leading-none"
+                  title="Route changed during this trace"
+                >
+                  ▲
+                </span>
+              )}
+              {isBottleneck && bottleneckDelta !== undefined && (
+                <span
+                  className="text-accent-yellow text-xs leading-none"
+                  title={`Bottleneck: +${bottleneckDelta.toFixed(0)}ms latency increase vs previous hop`}
+                >
+                  ▶
+                </span>
+              )}
+            </div>
+          </td>
 
           {/* Hostname / IP */}
           <td className="px-3 py-1.5 overflow-hidden">

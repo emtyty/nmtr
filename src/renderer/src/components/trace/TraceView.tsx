@@ -1,12 +1,14 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useTraceStore } from '../../store/useTraceStore'
 import { HopTable } from './HopTable'
+import { RouteEventsPanel } from './RouteEventsPanel'
 import { TraceControls } from '../controls/TraceControls'
 import { ExportMenu } from '../controls/ExportMenu'
 import { WhoisDialog } from '../dialogs/WhoisDialog'
 import { LatencyDetailDialog } from '../dialogs/LatencyDetailDialog'
 import { StatusBar } from '../layout/StatusBar'
 import { PlaybackBar } from '../playback/PlaybackBar'
+import { SessionRttChart } from './SessionRttChart'
 
 export function TraceView(): React.JSX.Element {
   const { sessions, activeSessionId } = useTraceStore()
@@ -14,6 +16,35 @@ export function TraceView(): React.JSX.Element {
   const [latencyHopIndex, setLatencyHopIndex] = useState<number | null>(null)
 
   const session = activeSessionId ? sessions[activeSessionId] : null
+
+  // Derive set of hop indexes that have ever had a route change — memoized to
+  // avoid defeating React.memo on HopRow for hops that haven't changed
+  const affectedHops = useMemo(
+    () => new Set((session?.routeEvents ?? []).map((e) => e.hopIndex)),
+    [session?.routeEvents]
+  )
+
+  // Find the hop with the largest latency increase vs its nearest predecessor.
+  // Skips * * * hops (avg === null). Only marks when delta > 10ms to avoid noise.
+  const bottleneckInfo = useMemo((): { hopIndex: number; delta: number } | null => {
+    const hops = session?.hops ?? []
+    const sorted = [...hops].sort((a, b) => a.hopIndex - b.hopIndex)
+    let maxDelta = 10 // minimum ms threshold to be considered a bottleneck
+    let result: { hopIndex: number; delta: number } | null = null
+    let prevAvg: number | null = null
+    for (const hop of sorted) {
+      if (hop.avg === null) continue
+      if (prevAvg !== null) {
+        const delta = hop.avg - prevAvg
+        if (delta > maxDelta) {
+          maxDelta = delta
+          result = { hopIndex: hop.hopIndex, delta }
+        }
+      }
+      prevAvg = hop.avg
+    }
+    return result
+  }, [session?.hops])
 
   // Derive latest hop data from the store — auto-updates as probes arrive
   const latencyHop =
@@ -35,15 +66,33 @@ export function TraceView(): React.JSX.Element {
         )}
       </div>
 
+      {/* RTT heartbeat chart — shown when session has data */}
+      {session && session.rttHistory.length > 0 && (
+        <SessionRttChart
+          rttHistory={session.rttHistory}
+          target={session.config.target}
+        />
+      )}
+
       {/* Hop table or empty state */}
       {session ? (
         <HopTable
           hops={session.hops}
           onWhois={setWhoisIp}
           onLatencyClick={setLatencyHopIndex}
+          affectedHops={affectedHops}
+          bottleneckInfo={bottleneckInfo}
         />
       ) : (
         <EmptyState />
+      )}
+
+      {/* Route events panel — shown when any hop IP changed during this session */}
+      {session && (
+        <RouteEventsPanel
+          events={session.routeEvents}
+          sessionStartedAt={session.startedAt}
+        />
       )}
 
       {/* Playback bar — shown only for playback sessions */}

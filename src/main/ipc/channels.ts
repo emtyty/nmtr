@@ -28,7 +28,9 @@ export const IPC = {
   DNS_RESOLVED: 'dns:resolved',
   HOP_ENRICHED: 'hop:enriched',
   SESSION_STATUS: 'session:status',
-  PLAYBACK_FRAME: 'playback:frame'
+  PLAYBACK_FRAME: 'playback:frame',
+  HOP_ROUTE_CHANGED: 'hop:routeChanged',
+  SESSION_RESET: 'session:reset'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

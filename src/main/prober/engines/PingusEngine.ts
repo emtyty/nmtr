@@ -22,15 +22,19 @@ export class PingusEngine implements IProberEngine {
     this.ready = this.loadPingus()
   }
 
+  /** Resolves when pingus is loaded, rejects with the load error. */
+  async waitReady(): Promise<void> {
+    await this.ready
+  }
+
   private async loadPingus(): Promise<void> {
-    try {
-      const pingus = await import('pingus')
-      this.PingICMP = pingus.PingICMP
-      this.PingUDP = pingus.PingUDP
-      this.PingTCP = pingus.PingTCP
-    } catch (err) {
-      throw new Error(`Failed to load pingus: ${err}. Ensure it is installed and electron-rebuild has run.`)
-    }
+    // pingus uses a default export; named exports don't exist at the top level
+    const mod = await import('pingus')
+    const pingus = (mod as any).default ?? mod
+    this.PingICMP = pingus.PingICMP
+    this.PingUDP = pingus.PingUDP
+    this.PingTCP = pingus.PingTCP
+    if (!this.PingICMP) throw new Error('pingus.PingICMP not found — unexpected module shape')
   }
 
   async probe(target: string, ttl: number, opts: ProbeOptions): Promise<ProbeResult> {

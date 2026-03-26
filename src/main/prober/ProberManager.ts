@@ -22,8 +22,8 @@ export const ProberManager = {
     const sessionId = randomUUID()
     const session = new ProberSession(sessionId, config, win)
     sessions.set(sessionId, session)
-    await session.start()
-    return { sessionId, engineMode: EngineFactory.getMode() }
+    const { engineMode } = await session.start()
+    return { sessionId, engineMode }
   },
 
   stopSession(sessionId: string): void {

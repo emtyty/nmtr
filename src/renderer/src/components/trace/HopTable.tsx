@@ -28,9 +28,11 @@ interface HopTableProps {
   hops: HopStats[]
   onWhois: (ip: string) => void
   onLatencyClick: (hopIndex: number) => void
+  affectedHops: Set<number>
+  bottleneckInfo: { hopIndex: number; delta: number } | null
 }
 
-function HopTableInner({ hops, onWhois, onLatencyClick }: HopTableProps): React.JSX.Element {
+function HopTableInner({ hops, onWhois, onLatencyClick, affectedHops, bottleneckInfo }: HopTableProps): React.JSX.Element {
   const [widths, setWidths] = useState<number[]>(COLUMNS.map((c) => c.defaultWidth))
 
   const onResizeStart = useCallback(
@@ -103,6 +105,9 @@ function HopTableInner({ hops, onWhois, onLatencyClick }: HopTableProps): React.
               hop={hop}
               onWhois={onWhois}
               onLatencyClick={onLatencyClick}
+              hasRouteChange={affectedHops.has(hop.hopIndex)}
+              isBottleneck={bottleneckInfo?.hopIndex === hop.hopIndex}
+              bottleneckDelta={bottleneckInfo?.hopIndex === hop.hopIndex ? bottleneckInfo.delta : undefined}
             />
           ))}
         </tbody>

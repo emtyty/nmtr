@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import type { BrowserWindow } from 'electron'
-import { nanoid } from 'crypto'
+import { randomUUID as _randomUUID } from 'crypto'
 import { EngineFactory } from './engines/EngineFactory'
 import { StatsAggregator } from './StatsAggregator'
 import { reverseDns } from './DnsResolver'
@@ -11,7 +11,8 @@ import type {
   TraceConfig,
   SessionStatus,
   HopStats,
-  ProbeOptions
+  ProbeOptions,
+  RouteChangeEvent
 } from '../../shared/types'
 import type { IProberEngine } from './engines/IProberEngine'
 import type { NativeEngine } from './engines/NativeEngine'
@@ -31,6 +32,11 @@ export class ProberSession extends EventEmitter {
   private elapsedInterval: NodeJS.Timeout | null = null
   private window: BrowserWindow
   private recorder: SessionRecorder | null = null
+  // Per-hop smoothed RTT estimates (EMA) — used to set adaptive timeouts
+  private rttEstimates: Map<number, number> = new Map()
+  // Authoritative last-known IP per TTL — separate from StatsAggregator for O(1) change detection
+  private hopIPs: Map<number, string> = new Map()
+  private routeChangeLog: RouteChangeEvent[] = []
 
   constructor(id: string, config: TraceConfig, window: BrowserWindow) {
     super()
@@ -39,19 +45,20 @@ export class ProberSession extends EventEmitter {
     this.window = window
   }
 
-  async start(): Promise<void> {
-    if (this.status === 'running') return
+  async start(): Promise<{ engineMode: 'pingus' | 'native' }> {
+    if (this.status === 'running') return { engineMode: EngineFactory.getMode() }
 
-    this.engine = EngineFactory.create()
+    const { engine, mode } = await EngineFactory.createSafe()
+    this.engine = engine
 
     // NativeEngine needs one-time traceroute to discover hops
-    const mode = EngineFactory.getMode()
     if (mode === 'native') {
       const native = this.engine as NativeEngine
       const hops = await native.discoverHops(this.config.target, this.config.maxHops)
       for (const [ttl, ip] of hops) {
         this.ensureAggregator(ttl).setIP(ip)
         this.knownHops.add(ttl)
+        this.hopIPs.set(ttl, ip)
         this.currentMaxTTL = Math.max(this.currentMaxTTL, ttl)
         this.emitHopNew(ttl, ip)
         this.triggerEnrichment(ttl, ip)
@@ -62,6 +69,7 @@ export class ProberSession extends EventEmitter {
     this.startedAt = Date.now()
     this.scheduleLoop()
     this.scheduleElapsedUpdates()
+    return { engineMode: mode }
   }
 
   stop(): void {
@@ -77,8 +85,12 @@ export class ProberSession extends EventEmitter {
     for (const agg of this.aggregators.values()) {
       agg.reset()
     }
+    this.rttEstimates.clear()
+    this.hopIPs.clear()
+    this.routeChangeLog = []
     this.finalHopTTL = null
     this.startedAt = Date.now()
+    this.window.webContents.send(IPC.SESSION_RESET, { sessionId: this.id })
     // Send zeroed snapshots in one batch
     this.window.webContents.send(IPC.HOPS_BATCH, {
       sessionId: this.id,
@@ -117,18 +129,25 @@ export class ProberSession extends EventEmitter {
   private async runProbeRound(): Promise<void> {
     if (!this.engine || this.status !== 'running') return
 
-    const opts: ProbeOptions = {
+    const defaultTimeout = Math.min(this.config.intervalMs - 50, 2000)
+    const baseOpts: ProbeOptions = {
       protocol: this.config.protocol,
       port: this.config.port,
       packetSize: this.config.packetSize,
-      timeoutMs: Math.min(this.config.intervalMs - 50, 2000),
+      timeoutMs: defaultTimeout,
       useIPv6: this.config.useIPv6
     }
+
+    // Spread probe starts evenly over 1/3 of the interval to avoid ICMP bursting
+    // at intermediate routers (e.g. 500ms / 3 / 30 hops ≈ 5ms stagger each)
+    const staggerMs = Math.floor(this.config.intervalMs / 3 / this.currentMaxTTL)
 
     const probePromises: Promise<void>[] = []
 
     for (let ttl = 1; ttl <= this.currentMaxTTL; ttl++) {
-      probePromises.push(this.probeHop(ttl, opts))
+      const delayMs = (ttl - 1) * staggerMs
+      const hopOpts: ProbeOptions = { ...baseOpts, timeoutMs: this.getHopTimeout(ttl, defaultTimeout) }
+      probePromises.push(this.probeHop(ttl, hopOpts, delayMs))
     }
 
     // Expand TTL if we haven't found the final hop yet
@@ -151,17 +170,21 @@ export class ProberSession extends EventEmitter {
     }
   }
 
-  private async probeHop(ttl: number, opts: ProbeOptions): Promise<void> {
+  private async probeHop(ttl: number, opts: ProbeOptions, delayMs: number): Promise<void> {
+    if (delayMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, delayMs))
+
     const agg = this.ensureAggregator(ttl)
 
     try {
       const result = await this.engine!.probe(this.config.target, ttl, opts)
 
+      this.updateRttEstimate(ttl, result.rttMs)
       agg.record(result.rttMs)
 
       // Discover new hop
       if (!this.knownHops.has(ttl) && result.fromIP) {
         this.knownHops.add(ttl)
+        this.hopIPs.set(ttl, result.fromIP)
         agg.setIP(result.fromIP)
         this.emitHopNew(ttl, result.fromIP)
 
@@ -179,6 +202,38 @@ export class ProberSession extends EventEmitter {
           })
         }
         this.triggerEnrichment(ttl, result.fromIP)
+      } else if (result.fromIP && this.hopIPs.get(ttl) !== result.fromIP) {
+        // IP changed on a known hop — BGP reroute, failover, or ECMP
+        const oldIP = this.hopIPs.get(ttl)!
+        this.hopIPs.set(ttl, result.fromIP)
+        agg.setIP(result.fromIP)
+        agg.setHostname(null) // clear stale hostname
+
+        const event: RouteChangeEvent = {
+          sessionId: this.id,
+          hopIndex: ttl,
+          oldIP,
+          newIP: result.fromIP,
+          timestamp: Date.now()
+        }
+        this.routeChangeLog.push(event)
+        this.window.webContents.send(IPC.HOP_ROUTE_CHANGED, event)
+
+        if (this.recorder) this.recorder.writeRouteChange(event, Date.now() - this.startedAt)
+
+        this.triggerEnrichment(ttl, result.fromIP)
+        if (this.config.resolveHostnames) {
+          reverseDns(result.fromIP).then((hostname) => {
+            if (hostname) {
+              agg.setHostname(hostname)
+              this.window.webContents.send(IPC.DNS_RESOLVED, {
+                sessionId: this.id,
+                hopIndex: ttl,
+                hostname
+              })
+            }
+          })
+        }
       }
 
       if (result.isFinalHop && this.finalHopTTL === null) {
@@ -190,6 +245,30 @@ export class ProberSession extends EventEmitter {
       agg.recordLoss()
     }
     // No per-hop IPC send here — runProbeRound sends HOPS_BATCH after all probes complete
+  }
+
+  /**
+   * Returns a per-hop timeout based on the smoothed RTT estimate for that TTL.
+   * Uses 3× observed RTT + 50ms buffer so fast/known hops resolve quickly
+   * without blocking Promise.allSettled on the slowest hop.
+   * Falls back to TTL-proportional fraction of defaultMs before any data exists.
+   */
+  private getHopTimeout(ttl: number, defaultMs: number): number {
+    const est = this.rttEstimates.get(ttl)
+    if (est !== undefined) {
+      // 3× smoothed RTT + 50ms jitter buffer, minimum 50ms, capped at default
+      return Math.min(Math.max(Math.ceil(est * 3 + 50), 50), defaultMs)
+    }
+    // No data yet: scale proportionally with TTL so near hops time out sooner
+    const ratio = Math.max(ttl / this.config.maxHops, 0.25)
+    return Math.max(100, Math.ceil(defaultMs * ratio))
+  }
+
+  /** Exponential moving average update of per-hop RTT estimate (α = 0.25). */
+  private updateRttEstimate(ttl: number, rttMs: number): void {
+    if (rttMs <= 0) return
+    const prev = this.rttEstimates.get(ttl)
+    this.rttEstimates.set(ttl, prev !== undefined ? prev * 0.75 + rttMs * 0.25 : rttMs)
   }
 
   private triggerEnrichment(ttl: number, ip: string): void {
@@ -247,5 +326,5 @@ export class ProberSession extends EventEmitter {
 }
 
 export function makeSessionId(): string {
-  return nanoid ? (nanoid as any)() : Math.random().toString(36).slice(2)
+  return _randomUUID()
 }

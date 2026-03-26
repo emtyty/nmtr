@@ -38,14 +38,24 @@ export const EngineFactory = {
   },
 
   /**
-   * Create a new engine instance.
-   * PingusEngine requires re-building native addon against Electron's Node version.
+   * Create a new engine instance and verify it is usable.
+   * If PingusEngine fails to load (e.g. raw-socket blocked by OS/AV),
+   * automatically falls back to NativeEngine and updates the cached mode.
    */
-  create(): IProberEngine {
+  async createSafe(): Promise<{ engine: IProberEngine; mode: EngineMode }> {
     const mode = cachedMode ?? 'native'
     if (mode === 'pingus') {
-      return new PingusEngine()
+      const engine = new PingusEngine()
+      try {
+        await engine.waitReady()
+        return { engine, mode: 'pingus' }
+      } catch (err) {
+        console.warn('[EngineFactory] PingusEngine unavailable, falling back to NativeEngine:', err)
+        cachedMode = 'native'
+        engine.destroy()
+        return { engine: new NativeEngine(), mode: 'native' }
+      }
     }
-    return new NativeEngine()
+    return { engine: new NativeEngine(), mode: 'native' }
   }
 }

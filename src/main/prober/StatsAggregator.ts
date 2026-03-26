@@ -36,7 +36,7 @@ export class StatsAggregator {
     this.ip = ip
   }
 
-  setHostname(hostname: string): void {
+  setHostname(hostname: string | null): void {
     this.hostname = hostname
   }
 

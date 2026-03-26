@@ -23,7 +23,8 @@ import type {
   DnsResolvedEvent,
   HopEnrichedEvent,
   SessionStatusEvent,
-  PlaybackFrameEvent
+  PlaybackFrameEvent,
+  RouteChangeEvent
 } from '../shared/types'
 
 type Unsubscribe = () => void
@@ -89,7 +90,11 @@ const nmtrAPI = {
   onSessionStatus: (cb: (e: SessionStatusEvent) => void): Unsubscribe =>
     on(IPC.SESSION_STATUS, cb),
   onPlaybackFrame: (cb: (e: PlaybackFrameEvent) => void): Unsubscribe =>
-    on(IPC.PLAYBACK_FRAME, cb)
+    on(IPC.PLAYBACK_FRAME, cb),
+  onHopRouteChanged: (cb: (e: RouteChangeEvent) => void): Unsubscribe =>
+    on(IPC.HOP_ROUTE_CHANGED, cb),
+  onSessionReset: (cb: (e: { sessionId: string }) => void): Unsubscribe =>
+    on(IPC.SESSION_RESET, cb)
 }
 
 contextBridge.exposeInMainWorld('nmtrAPI', nmtrAPI)

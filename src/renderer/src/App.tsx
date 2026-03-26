@@ -3,6 +3,7 @@ import { TitleBar } from './components/layout/TitleBar'
 import { Sidebar } from './components/layout/Sidebar'
 import { TraceView } from './components/trace/TraceView'
 import { useTraceSession } from './hooks/useTraceSession'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useSettingsStore } from './store/useSettingsStore'
 
 export default function App(): React.JSX.Element {
@@ -12,6 +13,7 @@ export default function App(): React.JSX.Element {
 
   // Subscribe to all IPC push events → Zustand store
   useTraceSession()
+  useKeyboardShortcuts()
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-canvas-default text-fg-default">

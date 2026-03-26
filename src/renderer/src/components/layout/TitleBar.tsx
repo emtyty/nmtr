@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { SettingsDialog } from '../dialogs/SettingsDialog'
+import { useUIStore } from '../../store/useUIStore'
 
 export function TitleBar(): React.JSX.Element {
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const { settingsOpen, openSettings, closeSettings } = useUIStore()
 
   return (
     <div className="drag-region flex h-9 items-center justify-between bg-canvas-subtle border-b border-border-default px-4 flex-shrink-0 select-none">
@@ -16,8 +17,8 @@ export function TitleBar(): React.JSX.Element {
       <div className="flex items-center gap-3 no-drag">
         <button
           className="text-fg-muted hover:text-fg-default transition-colors text-base leading-none"
-          onClick={() => setSettingsOpen(true)}
-          title="Settings"
+          onClick={openSettings}
+          title="Settings (Ctrl+,)"
         >
           ⚙
         </button>
@@ -41,7 +42,7 @@ export function TitleBar(): React.JSX.Element {
         </div>
       </div>
 
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsDialog open={settingsOpen} onClose={closeSettings} />
     </div>
   )
 }

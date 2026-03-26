@@ -65,6 +65,13 @@ export function useTraceSession(): void {
         if (e.frameIndex >= e.frameCount - 1) {
           rec.setPlaying(false)
         }
+      }),
+      // Route change events — not batched, dispatched immediately
+      window.nmtrAPI.onHopRouteChanged((e) => {
+        useTraceStore.getState().addRouteEvent(e.sessionId, e)
+      }),
+      window.nmtrAPI.onSessionReset((e) => {
+        useTraceStore.getState().clearRouteEvents(e.sessionId)
       })
     ]
 

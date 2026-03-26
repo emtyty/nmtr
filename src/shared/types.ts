@@ -73,6 +73,8 @@ export interface TraceSession {
   totalSent: number
   isPlayback: boolean
   engineMode: 'pingus' | 'native' // which engine is active
+  routeEvents: RouteChangeEvent[]  // IP changes detected during this session
+  rttHistory: (number | null)[]   // final-hop RTT per probe round, newest at tail (max 300)
 }
 
 // ─── App settings ─────────────────────────────────────────────────────────────
@@ -116,7 +118,25 @@ export interface RecordingFrame {
   hops: HopStats[]
 }
 
-export type RecordingLine = RecordingMeta | RecordingFrame
+export interface RecordingRouteChange {
+  type: 'routechange'
+  t: number        // ms since session startedAt
+  hopIndex: number
+  oldIP: string
+  newIP: string
+}
+
+export type RecordingLine = RecordingMeta | RecordingFrame | RecordingRouteChange
+
+// ─── Route change ─────────────────────────────────────────────────────────────
+
+export interface RouteChangeEvent {
+  sessionId: string
+  hopIndex: number  // 1-based TTL
+  oldIP: string
+  newIP: string
+  timestamp: number // Date.now()
+}
 
 // ─── IPC payload types ────────────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import fs from 'fs'
-import type { HopStats, TraceConfig, RecordingMeta } from '../../shared/types'
+import type { HopStats, TraceConfig, RecordingMeta, RecordingRouteChange, RouteChangeEvent } from '../../shared/types'
 
 /**
  * SessionRecorder — writes a live trace session to an NDJSON file.
@@ -38,6 +38,18 @@ export class SessionRecorder {
     if (!this.stream) return
     const frame = { type: 'frame', t: elapsedMs, hops }
     this.stream.write(JSON.stringify(frame) + '\n')
+  }
+
+  writeRouteChange(event: RouteChangeEvent, elapsedMs: number): void {
+    if (!this.stream) return
+    const entry: RecordingRouteChange = {
+      type: 'routechange',
+      t: elapsedMs,
+      hopIndex: event.hopIndex,
+      oldIP: event.oldIP,
+      newIP: event.newIP
+    }
+    this.stream.write(JSON.stringify(entry) + '\n')
   }
 
   stop(): string {

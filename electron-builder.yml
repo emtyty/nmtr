@@ -18,6 +18,8 @@ extraResources:
 asar: true
 asarUnpack:
   - "node_modules/pingus/**/*"
+  - "node_modules/raw-socket/**/*"
+  - "node_modules/@amuject/**/*"
 
 win:
   target:
