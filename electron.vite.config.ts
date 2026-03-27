@@ -13,8 +13,8 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        // Native addons must not be bundled — loaded at runtime
-        external: ['pingus', 'electron-store', 'node-whois']
+        // Native addons and CJS-only packages must not be bundled — loaded at runtime
+        external: ['pingus', 'electron-store', 'node-whois', 'electron-updater']
       }
     }
   },

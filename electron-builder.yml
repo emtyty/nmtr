@@ -9,6 +9,15 @@ directories:
 files:
   - out/**/*
   - "!out/**/*.map"
+  - package.json
+  - node_modules/pingus/**/*
+  - node_modules/raw-socket/**/*
+  - node_modules/@amuject/**/*
+  - node_modules/koffi/**/*
+  - node_modules/p-queue/**/*
+  - node_modules/p-limit/**/*
+  - node_modules/electron-store/**/*
+  - node_modules/lru-cache/**/*
 
 extraResources:
   - from: resources/
@@ -17,9 +26,10 @@ extraResources:
 
 asar: true
 asarUnpack:
-  - "node_modules/pingus/**/*"
-  - "node_modules/raw-socket/**/*"
-  - "node_modules/@amuject/**/*"
+  - node_modules/pingus/**/*
+  - node_modules/raw-socket/**/*
+  - node_modules/@amuject/**/*
+  - node_modules/koffi/**/*
 
 win:
   target:

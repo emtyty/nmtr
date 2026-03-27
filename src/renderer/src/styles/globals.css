@@ -1,12 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Base font */
+body { font-family: 'Inter', system-ui, sans-serif; }
+
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #484f58; }
+::-webkit-scrollbar-thumb { background: #3f3f4a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #5a5a68; }
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* Monospace table font */
 .font-table {
@@ -23,3 +32,8 @@
   50% { opacity: 0.3; }
 }
 .pulse-dot { animation: pulse-dot 1.5s infinite; }
+
+/* Active trace gradient (header strip) */
+.active-trace-gradient {
+  background: linear-gradient(135deg, #2a2a32 0%, #1e1e24 100%);
+}

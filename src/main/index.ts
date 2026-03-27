@@ -1,15 +1,18 @@
 import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { join } from 'path'
-import { registerHandlers } from './ipc/handlers'
+import { registerHandlers, setTrayManager } from './ipc/handlers'
 import { ProberManager } from './prober/ProberManager'
 import { TrayManager } from './tray/TrayManager'
 import { AppSettingsStore } from './store/AppSettings'
+import { initAutoUpdater } from './updater/AutoUpdater'
+import { createLogoIcon } from './utils/logoIcon'
 
 let mainWindow: BrowserWindow | null = null
 let trayManager: TrayManager | null = null
 
 function createWindow(): void {
   const settings = AppSettingsStore.get()
+  const icon = createLogoIcon(32)
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -17,8 +20,9 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 500,
     frame: false, // frameless — custom title bar
-    backgroundColor: '#0d1117',
+    backgroundColor: '#1e1e24',
     titleBarStyle: 'hidden',
+    icon,
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -75,8 +79,10 @@ app.whenReady().then(async () => {
   createWindow()
 
   registerHandlers(mainWindow!)
+  initAutoUpdater(mainWindow!)
 
   trayManager = new TrayManager(mainWindow!)
+  setTrayManager(trayManager)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

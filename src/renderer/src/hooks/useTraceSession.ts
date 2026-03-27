@@ -1,6 +1,8 @@
 import { useEffect, useRef, startTransition } from 'react'
 import { useTraceStore } from '../store/useTraceStore'
 import { useRecordingStore } from '../store/useRecordingStore'
+import { useUIStore } from '../store/useUIStore'
+import { useHistoryStore } from '../store/useHistoryStore'
 import type { HopStats } from '@shared/types'
 
 /**
@@ -72,6 +74,14 @@ export function useTraceSession(): void {
       }),
       window.nmtrAPI.onSessionReset((e) => {
         useTraceStore.getState().clearRouteEvents(e.sessionId)
+      }),
+      // Tracert discovery — store result silently; user opens modal manually via 📡 button
+      window.nmtrAPI.onTracertResult((e) => {
+        useUIStore.getState().showTracertResult(e)
+      }),
+      // History — prepend new entry immediately when a trace stops
+      window.nmtrAPI.onHistoryEntryAdded((entry) => {
+        useHistoryStore.getState().prependEntry(entry)
       })
     ]
 

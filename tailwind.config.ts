@@ -6,31 +6,33 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['Cascadia Code', 'Consolas', 'Fira Code', 'monospace']
       },
       colors: {
-        // Dark theme palette (GitHub dark inspired)
+        // nmtr dark palette
         canvas: {
-          default: '#0d1117',
-          subtle: '#161b22',
-          inset: '#010409',
-          hover: '#1a2030'
+          default: '#1e1e24',
+          subtle: '#2a2a32',
+          inset: '#17171d',
+          hover: '#363640',
+          overlay: '#2d2d35'
         },
         border: {
-          default: '#30363d',
-          muted: '#21262d'
+          default: '#3f3f4a',
+          muted: '#33333d'
         },
         fg: {
-          default: '#e6edf3',
-          muted: '#7d8590',
-          subtle: '#6e7681'
+          default: '#e2e2e8',
+          muted: '#8b8b98',
+          subtle: '#6b6b78'
         },
         accent: {
-          blue: '#58a6ff',
-          green: '#3fb950',
-          yellow: '#d29922',
-          red: '#f85149',
-          orange: '#db6d28'
+          blue: '#34d399',    // emerald — primary accent (kept as accent-blue for compat)
+          green: '#34d399',
+          yellow: '#f59e0b',
+          red: '#ef4444',
+          orange: '#fb923c'
         }
       }
     }

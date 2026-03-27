@@ -15,13 +15,13 @@ import type {
   RouteChangeEvent
 } from '../../shared/types'
 import type { IProberEngine } from './engines/IProberEngine'
-import type { NativeEngine } from './engines/NativeEngine'
 
 export class ProberSession extends EventEmitter {
   readonly id: string
   readonly config: TraceConfig
 
   private engine: IProberEngine | null = null
+  private engineMode: 'pingus' | 'native' = 'native'
   private aggregators: Map<number, StatsAggregator> = new Map()
   private knownHops: Set<number> = new Set()
   private currentMaxTTL = 1
@@ -45,16 +45,33 @@ export class ProberSession extends EventEmitter {
     this.window = window
   }
 
+  get currentStatus(): SessionStatus { return this.status }
+  get currentEngineMode(): 'pingus' | 'native' { return this.engineMode }
+
+  private isWindowAlive(): boolean {
+    return !this.window.isDestroyed() && !this.window.webContents.isDestroyed()
+  }
+
   async start(): Promise<{ engineMode: 'pingus' | 'native' }> {
-    if (this.status === 'running') return { engineMode: EngineFactory.getMode() }
+    if (this.status === 'running') return { engineMode: this.engineMode }
 
-    const { engine, mode } = await EngineFactory.createSafe()
-    this.engine = engine
-
-    // NativeEngine needs one-time traceroute to discover hops
-    if (mode === 'native') {
-      const native = this.engine as NativeEngine
-      const hops = await native.discoverHops(this.config.target, this.config.maxHops)
+    // 1. Route discovery — always runs via NativeEngine tracert
+    console.log(`[ProberSession] ${this.id} starting tracert discovery — target=${this.config.target} maxHops=${this.config.maxHops}`)
+    try {
+      const discovery = EngineFactory.createDiscovery()
+      const { hops, rawOutput, error } = await discovery.discoverHops(
+        this.config.target,
+        this.config.maxHops
+      )
+      if (error) console.error(`[ProberSession] ${this.id} tracert error: ${error}`)
+      console.log(`[ProberSession] ${this.id} tracert discovery complete — hops discovered=${hops.size}`)
+      if (this.isWindowAlive()) this.window.webContents.send(IPC.TRACERT_RESULT, {
+        sessionId: this.id,
+        target: this.config.target,
+        rawOutput,
+        hops: Array.from(hops.entries()).map(([ttl, ip]) => ({ ttl, ip })),
+        error
+      })
       for (const [ttl, ip] of hops) {
         this.ensureAggregator(ttl).setIP(ip)
         this.knownHops.add(ttl)
@@ -63,18 +80,35 @@ export class ProberSession extends EventEmitter {
         this.emitHopNew(ttl, ip)
         this.triggerEnrichment(ttl, ip)
       }
+    } catch (err) {
+      console.error(`[ProberSession] ${this.id} tracert discovery FAILED:`, err)
+      throw err
+    }
+
+    // 2. Probe engine — PingusEngine preferred (raw socket, ICMP/UDP/TCP), NativeEngine fallback
+    console.log(`[ProberSession] ${this.id} selecting probe engine…`)
+    try {
+      const { engine, mode } = await EngineFactory.createProber()
+      this.engine = engine
+      this.engineMode = mode
+      console.log(`[ProberSession] ${this.id} probe engine ready — mode=${mode}`)
+    } catch (err) {
+      console.error(`[ProberSession] ${this.id} probe engine creation FAILED:`, err)
+      throw err
     }
 
     this.status = 'running'
     this.startedAt = Date.now()
+    console.log(`[ProberSession] ${this.id} started — engine=${this.engineMode} target=${this.config.target} interval=${this.config.intervalMs}ms`)
     this.scheduleLoop()
     this.scheduleElapsedUpdates()
-    return { engineMode: mode }
+    return { engineMode: this.engineMode }
   }
 
   stop(): void {
     this.clearTimers()
     this.status = 'stopped'
+    console.log(`[ProberSession] ${this.id} stopped`)
     this.engine?.destroy()
     this.engine = null
     this.emitStatus()
@@ -90,9 +124,9 @@ export class ProberSession extends EventEmitter {
     this.routeChangeLog = []
     this.finalHopTTL = null
     this.startedAt = Date.now()
-    this.window.webContents.send(IPC.SESSION_RESET, { sessionId: this.id })
+    if (this.isWindowAlive()) this.window.webContents.send(IPC.SESSION_RESET, { sessionId: this.id })
     // Send zeroed snapshots in one batch
-    this.window.webContents.send(IPC.HOPS_BATCH, {
+    if (this.isWindowAlive()) this.window.webContents.send(IPC.HOPS_BATCH, {
       sessionId: this.id,
       hops: this.getAllSnapshots()
     })
@@ -112,9 +146,15 @@ export class ProberSession extends EventEmitter {
   }
 
   private scheduleLoop(): void {
-    this.timer = setInterval(() => this.runProbeRound(), this.config.intervalMs)
+    this.timer = setInterval(() => {
+      this.runProbeRound().catch((err) =>
+        console.error(`[ProberSession] ${this.id} runProbeRound uncaught error:`, err)
+      )
+    }, this.config.intervalMs)
     // Run immediately on start
-    this.runProbeRound()
+    this.runProbeRound().catch((err) =>
+      console.error(`[ProberSession] ${this.id} runProbeRound (immediate) uncaught error:`, err)
+    )
   }
 
   private scheduleElapsedUpdates(): void {
@@ -126,8 +166,13 @@ export class ProberSession extends EventEmitter {
     if (this.elapsedInterval) { clearInterval(this.elapsedInterval); this.elapsedInterval = null }
   }
 
+  private probeRoundCount = 0
+
   private async runProbeRound(): Promise<void> {
     if (!this.engine || this.status !== 'running') return
+
+    const round = ++this.probeRoundCount
+    console.log(`[ProberSession] ${this.id} round #${round} — maxTTL=${this.currentMaxTTL} aggregators=${this.aggregators.size}`)
 
     const defaultTimeout = Math.min(this.config.intervalMs - 50, 2000)
     const baseOpts: ProbeOptions = {
@@ -159,7 +204,8 @@ export class ProberSession extends EventEmitter {
 
     // Send all hop snapshots in ONE batch (N hops → 1 IPC call instead of N)
     const allSnapshots = this.getAllSnapshots()
-    this.window.webContents.send(IPC.HOPS_BATCH, {
+    console.log(`[ProberSession] ${this.id} round #${round} done — snapshots=${allSnapshots.length} windowAlive=${this.isWindowAlive()}`)
+    if (this.isWindowAlive()) this.window.webContents.send(IPC.HOPS_BATCH, {
       sessionId: this.id,
       hops: allSnapshots
     })
@@ -191,7 +237,7 @@ export class ProberSession extends EventEmitter {
         // Async DNS + enrichment
         if (this.config.resolveHostnames) {
           reverseDns(result.fromIP).then((hostname) => {
-            if (hostname) {
+            if (hostname && this.isWindowAlive()) {
               agg.setHostname(hostname)
               this.window.webContents.send(IPC.DNS_RESOLVED, {
                 sessionId: this.id,
@@ -217,14 +263,14 @@ export class ProberSession extends EventEmitter {
           timestamp: Date.now()
         }
         this.routeChangeLog.push(event)
-        this.window.webContents.send(IPC.HOP_ROUTE_CHANGED, event)
+        if (this.isWindowAlive()) this.window.webContents.send(IPC.HOP_ROUTE_CHANGED, event)
 
         if (this.recorder) this.recorder.writeRouteChange(event, Date.now() - this.startedAt)
 
         this.triggerEnrichment(ttl, result.fromIP)
         if (this.config.resolveHostnames) {
           reverseDns(result.fromIP).then((hostname) => {
-            if (hostname) {
+            if (hostname && this.isWindowAlive()) {
               agg.setHostname(hostname)
               this.window.webContents.send(IPC.DNS_RESOLVED, {
                 sessionId: this.id,
@@ -274,7 +320,7 @@ export class ProberSession extends EventEmitter {
   private triggerEnrichment(ttl: number, ip: string): void {
     const agg = this.ensureAggregator(ttl)
     GeoIPLookup.lookup(ip).then((enrichment) => {
-      if (enrichment) {
+      if (enrichment && this.isWindowAlive()) {
         agg.setEnrichment(enrichment)
         this.window.webContents.send(IPC.HOP_ENRICHED, {
           sessionId: this.id,
@@ -293,6 +339,7 @@ export class ProberSession extends EventEmitter {
   }
 
   private emitHopNew(ttl: number, ip: string): void {
+    if (!this.isWindowAlive()) return
     this.window.webContents.send(IPC.HOP_NEW, {
       sessionId: this.id,
       hopIndex: ttl,
@@ -301,6 +348,7 @@ export class ProberSession extends EventEmitter {
   }
 
   private emitStatus(): void {
+    if (!this.isWindowAlive()) return
     const totalSent = [...this.aggregators.values()].reduce((s, a) => s + a.snapshot().sent, 0)
     this.window.webContents.send(IPC.SESSION_STATUS, {
       sessionId: this.id,

@@ -10,6 +10,7 @@ import type {
   WhoisPayload,
   WhoisResult,
   AppSettings,
+  HistoryEntry,
   RecordingStartPayload,
   RecordingStopPayload,
   RecordingStopResult,
@@ -24,7 +25,8 @@ import type {
   HopEnrichedEvent,
   SessionStatusEvent,
   PlaybackFrameEvent,
-  RouteChangeEvent
+  RouteChangeEvent,
+  TracertResultEvent
 } from '../shared/types'
 
 type Unsubscribe = () => void
@@ -94,7 +96,29 @@ const nmtrAPI = {
   onHopRouteChanged: (cb: (e: RouteChangeEvent) => void): Unsubscribe =>
     on(IPC.HOP_ROUTE_CHANGED, cb),
   onSessionReset: (cb: (e: { sessionId: string }) => void): Unsubscribe =>
-    on(IPC.SESSION_RESET, cb)
+    on(IPC.SESSION_RESET, cb),
+  onTracertResult: (cb: (e: TracertResultEvent) => void): Unsubscribe =>
+    on(IPC.TRACERT_RESULT, cb),
+
+  // ── History ────────────────────────────────────────────────────────────────
+  historyGet: (): Promise<HistoryEntry[]> => ipcRenderer.invoke(IPC.HISTORY_GET),
+  historyClear: (): Promise<void> => ipcRenderer.invoke(IPC.HISTORY_CLEAR),
+  historyRemove: (id: string): Promise<void> => ipcRenderer.invoke(IPC.HISTORY_REMOVE, id),
+  onHistoryEntryAdded: (cb: (entry: HistoryEntry) => void): Unsubscribe =>
+    on(IPC.HISTORY_ENTRY_ADDED, cb),
+
+  // ── Auto-update ────────────────────────────────────────────────────────────
+  checkForUpdates: (): Promise<void> => ipcRenderer.invoke(IPC.UPDATE_CHECK),
+  downloadUpdate: (): Promise<void> => ipcRenderer.invoke(IPC.UPDATE_DOWNLOAD),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
+  onUpdateAvailable: (cb: (e: { version: string; releaseNotes: string | null }) => void): Unsubscribe =>
+    on(IPC.UPDATE_AVAILABLE, cb),
+  onUpdateProgress: (cb: (e: { percent: number }) => void): Unsubscribe =>
+    on(IPC.UPDATE_PROGRESS, cb),
+  onUpdateDownloaded: (cb: () => void): Unsubscribe =>
+    on(IPC.UPDATE_DOWNLOADED, cb),
+  onUpdateError: (cb: (e: { message: string }) => void): Unsubscribe =>
+    on(IPC.UPDATE_ERROR, cb)
 }
 
 contextBridge.exposeInMainWorld('nmtrAPI', nmtrAPI)

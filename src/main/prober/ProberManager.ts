@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto'
 import type { BrowserWindow } from 'electron'
-import { EngineFactory } from './engines/EngineFactory'
 import { ProberSession } from './ProberSession'
 import type { TraceConfig } from '../../shared/types'
 
@@ -9,8 +8,7 @@ const sessions = new Map<string, ProberSession>()
 
 export const ProberManager = {
   async initialize(): Promise<void> {
-    await EngineFactory.detectMode()
-    console.log('[ProberManager] Initialized, engine mode:', EngineFactory.getMode())
+    console.log('[ProberManager] Initialized')
   },
 
   setWindow(window: BrowserWindow): void {
@@ -20,10 +18,19 @@ export const ProberManager = {
   async createSession(config: TraceConfig): Promise<{ sessionId: string; engineMode: string }> {
     if (!win) throw new Error('No BrowserWindow registered')
     const sessionId = randomUUID()
+    console.log(`[ProberManager] createSession — id=${sessionId} target=${config.target} protocol=${config.protocol} interval=${config.intervalMs}ms maxHops=${config.maxHops}`)
     const session = new ProberSession(sessionId, config, win)
     sessions.set(sessionId, session)
-    const { engineMode } = await session.start()
-    return { sessionId, engineMode }
+    console.log(`[ProberManager] Starting session ${sessionId}…`)
+    try {
+      const { engineMode } = await session.start()
+      console.log(`[ProberManager] Session ${sessionId} ready — engineMode=${engineMode}`)
+      return { sessionId, engineMode }
+    } catch (err) {
+      console.error(`[ProberManager] Session ${sessionId} failed to start:`, err)
+      sessions.delete(sessionId)
+      throw err
+    }
   },
 
   stopSession(sessionId: string): void {
@@ -44,6 +51,14 @@ export const ProberManager = {
 
   stopRecording(sessionId: string): string {
     return sessions.get(sessionId)?.stopRecording() ?? ''
+  },
+
+  getActiveSessions(): Array<{ id: string; target: string; status: string }> {
+    return [...sessions.entries()].map(([id, session]) => ({
+      id,
+      target: session.config.target,
+      status: session.currentStatus
+    }))
   },
 
   destroyAll(): void {

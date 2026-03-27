@@ -41,6 +41,8 @@ export interface EnrichmentData {
   country: string | null // "US"
   countryCode: string | null // "US"
   city: string | null
+  lat: number | null
+  lng: number | null
 }
 
 // ─── Per-hop statistics ───────────────────────────────────────────────────────
@@ -201,6 +203,30 @@ export interface PlaybackSeekPayload {
 }
 export interface PlaybackStopPayload {
   sessionId: string
+}
+
+// ─── Trace history ────────────────────────────────────────────────────────────
+
+export interface HistoryEntry {
+  id: string
+  target: string
+  protocol: Protocol
+  startedAt: number   // Date.now()
+  durationMs: number
+  hopCount: number    // number of hops with IPs
+  avgLoss: number     // average loss% across all hops (0–100)
+  avgRtt: number | null  // average RTT of final hop, ms
+  engineMode: string
+}
+
+// ─── Tracert discovery result ─────────────────────────────────────────────────
+
+export interface TracertResultEvent {
+  sessionId: string
+  target: string
+  rawOutput: string          // full stdout+stderr from tracert
+  hops: { ttl: number; ip: string }[]  // successfully parsed hops
+  error: string | null       // spawn error message, or null on success
 }
 
 // ─── IPC push event payloads (main → renderer) ───────────────────────────────

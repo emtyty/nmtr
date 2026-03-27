@@ -30,7 +30,25 @@ export const IPC = {
   SESSION_STATUS: 'session:status',
   PLAYBACK_FRAME: 'playback:frame',
   HOP_ROUTE_CHANGED: 'hop:routeChanged',
-  SESSION_RESET: 'session:reset'
+  SESSION_RESET: 'session:reset',
+  TRACERT_RESULT: 'tracert:result',
+
+  // History
+  HISTORY_GET: 'history:get',
+  HISTORY_CLEAR: 'history:clear',
+  HISTORY_REMOVE: 'history:remove',
+  HISTORY_ENTRY_ADDED: 'history:entryAdded', // main → renderer push
+
+  // Auto-update (renderer → main invoke)
+  UPDATE_CHECK: 'update:check',
+  UPDATE_DOWNLOAD: 'update:download',
+  UPDATE_INSTALL: 'update:install',
+
+  // Auto-update (main → renderer push)
+  UPDATE_AVAILABLE: 'update:available',
+  UPDATE_PROGRESS: 'update:progress',
+  UPDATE_DOWNLOADED: 'update:downloaded',
+  UPDATE_ERROR: 'update:error'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

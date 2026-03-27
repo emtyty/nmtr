@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { useTraceStore } from '../../store/useTraceStore'
+import { useUIStore } from '../../store/useUIStore'
 import { HopTable } from './HopTable'
 import { RouteEventsPanel } from './RouteEventsPanel'
 import { TraceControls } from '../controls/TraceControls'
@@ -9,11 +10,17 @@ import { LatencyDetailDialog } from '../dialogs/LatencyDetailDialog'
 import { StatusBar } from '../layout/StatusBar'
 import { PlaybackBar } from '../playback/PlaybackBar'
 import { SessionRttChart } from './SessionRttChart'
+import { NetworkPathMap } from '../network-map/NetworkPathMap'
+import { NetworkGeoMap } from '../network-map/NetworkGeoMap'
+
+type MapTab = 'table' | 'path' | 'map'
 
 export function TraceView(): React.JSX.Element {
   const { sessions, activeSessionId } = useTraceStore()
+  const { tracertResult, openTracertModal } = useUIStore()
   const [whoisIp, setWhoisIp] = useState<string | null>(null)
   const [latencyHopIndex, setLatencyHopIndex] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<MapTab>('table')
 
   const session = activeSessionId ? sessions[activeSessionId] : null
 
@@ -60,7 +67,21 @@ export function TraceView(): React.JSX.Element {
           <TraceControls sessionId={activeSessionId} />
         </div>
         {activeSessionId && session && (
-          <div className="pr-4 flex-shrink-0">
+          <div className="pr-4 flex-shrink-0 flex items-center gap-2">
+            {/* Show tracert button only when we have a result for this session */}
+            {tracertResult && tracertResult.sessionId === activeSessionId && (
+              <button
+                onClick={() => openTracertModal()}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded border border-border-default text-fg-muted hover:text-fg-default hover:bg-canvas-subtle transition-colors"
+                title="View tracert discovery output"
+              >
+                <span>📡</span>
+                <span>Tracert</span>
+                {tracertResult.error && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+                )}
+              </button>
+            )}
             <ExportMenu sessionId={activeSessionId} />
           </div>
         )}
@@ -74,21 +95,50 @@ export function TraceView(): React.JSX.Element {
         />
       )}
 
-      {/* Hop table or empty state */}
+      {/* Tab bar — shown only when a session is active */}
+      {session && (
+        <div className="flex items-center gap-0 border-b border-border-default flex-shrink-0 px-4">
+          {(['table', 'path', 'map'] as MapTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-1.5 text-xs font-medium border-b-2 transition-colors capitalize ${
+                activeTab === tab
+                  ? 'border-accent-blue text-fg-default'
+                  : 'border-transparent text-fg-muted hover:text-fg-default'
+              }`}
+            >
+              {tab === 'table' ? 'Table' : tab === 'path' ? 'Path' : 'Map'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Main content area */}
       {session ? (
-        <HopTable
-          hops={session.hops}
-          onWhois={setWhoisIp}
-          onLatencyClick={setLatencyHopIndex}
-          affectedHops={affectedHops}
-          bottleneckInfo={bottleneckInfo}
-        />
+        <>
+          {activeTab === 'table' && (
+            <HopTable
+              hops={session.hops}
+              onWhois={setWhoisIp}
+              onLatencyClick={setLatencyHopIndex}
+              affectedHops={affectedHops}
+              bottleneckInfo={bottleneckInfo}
+            />
+          )}
+          {activeTab === 'path' && (
+            <NetworkPathMap hops={session.hops} onWhois={setWhoisIp} />
+          )}
+          {activeTab === 'map' && (
+            <NetworkGeoMap hops={session.hops} />
+          )}
+        </>
       ) : (
         <EmptyState />
       )}
 
-      {/* Route events panel — shown when any hop IP changed during this session */}
-      {session && (
+      {/* Route events panel — shown only in table tab */}
+      {session && activeTab === 'table' && (
         <RouteEventsPanel
           events={session.routeEvents}
           sessionStartedAt={session.startedAt}

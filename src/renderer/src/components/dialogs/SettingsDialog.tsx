@@ -140,19 +140,27 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 px-4 py-3 border-t border-border-default">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border-default">
             <button
-              className="px-4 py-1.5 rounded border border-border-default text-base text-fg-muted hover:border-fg-muted hover:text-fg-default transition-colors"
-              onClick={onClose}
+              className="px-3 py-1.5 rounded border border-border-default text-xs text-fg-muted hover:border-fg-muted hover:text-fg-default transition-colors"
+              onClick={() => window.nmtrAPI.checkForUpdates()}
             >
-              Cancel
+              Check for Updates
             </button>
-            <button
-              className="px-4 py-1.5 rounded bg-accent-blue text-white text-base font-semibold hover:opacity-90 transition-opacity"
-              onClick={handleSave}
-            >
-              Save
-            </button>
+            <div className="flex gap-2">
+              <button
+                className="px-4 py-1.5 rounded border border-border-default text-base text-fg-muted hover:border-fg-muted hover:text-fg-default transition-colors"
+                onClick={onClose}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-1.5 rounded bg-accent-blue text-white text-base font-semibold hover:opacity-90 transition-opacity"
+                onClick={handleSave}
+              >
+                Save
+              </button>
+            </div>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

@@ -3,43 +3,50 @@ import { SettingsDialog } from '../dialogs/SettingsDialog'
 import { useUIStore } from '../../store/useUIStore'
 
 export function TitleBar(): React.JSX.Element {
-  const { settingsOpen, openSettings, closeSettings } = useUIStore()
+  const { settingsOpen, closeSettings } = useUIStore()
 
   return (
-    <div className="drag-region flex h-9 items-center justify-between bg-canvas-subtle border-b border-border-default px-4 flex-shrink-0 select-none">
-      {/* Left: logo + subtitle */}
-      <div className="flex items-center gap-2 no-drag pointer-events-none">
-        <span className="text-accent-blue font-bold text-lg tracking-widest">◈ nmtr</span>
-        <span className="text-fg-muted text-base">Network Diagnostic Tool</span>
+    <div className="drag-region flex h-9 items-center justify-between bg-canvas-subtle border-b border-border-default flex-shrink-0 select-none">
+      {/* Left: logo */}
+      <div className="flex items-center gap-2.5 px-4 no-drag pointer-events-none">
+        <span className="font-mono font-bold tracking-tight text-sm leading-none">
+          <span className="text-fg-muted">{`{`}</span>
+          <span className="text-accent-blue">NMTR</span>
+          <span className="text-fg-muted">{`}`}</span>
+        </span>
+        <span className="text-fg-subtle text-xs font-medium tracking-wide uppercase">Network Diagnostic</span>
       </div>
 
-      {/* Right: settings gear + window controls */}
-      <div className="flex items-center gap-3 no-drag">
+      {/* Right: Windows-style window controls */}
+      <div className="flex items-stretch h-full no-drag">
         <button
-          className="text-fg-muted hover:text-fg-default transition-colors text-base leading-none"
-          onClick={openSettings}
-          title="Settings (Ctrl+,)"
+          className="w-11 flex items-center justify-center text-fg-muted hover:bg-canvas-hover hover:text-fg-default transition-colors"
+          onClick={() => window.nmtrAPI.windowMinimize()}
+          title="Minimize"
         >
-          ⚙
+          <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
+            <rect width="10" height="1" />
+          </svg>
         </button>
-
-        <div className="flex items-center gap-2">
-          <button
-            className="w-3 h-3 rounded-full bg-[#febc2e] hover:opacity-80 transition-opacity"
-            onClick={() => window.nmtrAPI.windowMinimize()}
-            title="Minimize"
-          />
-          <button
-            className="w-3 h-3 rounded-full bg-[#28c840] hover:opacity-80 transition-opacity"
-            onClick={() => window.nmtrAPI.windowMaximize()}
-            title="Maximize"
-          />
-          <button
-            className="w-3 h-3 rounded-full bg-[#ff5f57] hover:opacity-80 transition-opacity"
-            onClick={() => window.nmtrAPI.windowClose()}
-            title="Close"
-          />
-        </div>
+        <button
+          className="w-11 flex items-center justify-center text-fg-muted hover:bg-canvas-hover hover:text-fg-default transition-colors"
+          onClick={() => window.nmtrAPI.windowMaximize()}
+          title="Maximize"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
+            <rect x="0.5" y="0.5" width="9" height="9" />
+          </svg>
+        </button>
+        <button
+          className="w-11 flex items-center justify-center text-fg-muted hover:bg-accent-red hover:text-white transition-colors"
+          onClick={() => window.nmtrAPI.windowClose()}
+          title="Close"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+            <line x1="0" y1="0" x2="10" y2="10" />
+            <line x1="10" y1="0" x2="0" y2="10" />
+          </svg>
+        </button>
       </div>
 
       <SettingsDialog open={settingsOpen} onClose={closeSettings} />

@@ -23,7 +23,9 @@ const PRIVATE_RESULT: EnrichmentData = {
   isp: 'Private Network',
   country: null,
   countryCode: null,
-  city: null
+  city: null,
+  lat: null,
+  lng: null
 }
 
 // LRU cache — IPs rarely change org
@@ -38,7 +40,7 @@ function isPrivate(ip: string): boolean {
 
 async function fetchIpApi(ip: string): Promise<EnrichmentData> {
   try {
-    const url = `http://ip-api.com/json/${ip}?fields=as,org,country,countryCode,city`
+    const url = `http://ip-api.com/json/${ip}?fields=as,org,country,countryCode,city,lat,lon`
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
     if (!res.ok) return PRIVATE_RESULT
     const data = (await res.json()) as {
@@ -47,13 +49,17 @@ async function fetchIpApi(ip: string): Promise<EnrichmentData> {
       country?: string
       countryCode?: string
       city?: string
+      lat?: number
+      lon?: number
     }
     return {
       asn: data.as?.split(' ')[0] ?? null, // "AS15169 Google LLC" → "AS15169"
       isp: data.org ?? data.as?.slice(data.as.indexOf(' ') + 1) ?? null,
       country: data.country ?? null,
       countryCode: data.countryCode ?? null,
-      city: data.city ?? null
+      city: data.city ?? null,
+      lat: data.lat ?? null,
+      lng: data.lon ?? null
     }
   } catch {
     return PRIVATE_RESULT

@@ -4,8 +4,11 @@ import { IPC } from './channels'
 import { ProberManager } from '../prober/ProberManager'
 import { fetchWhois } from '../enrichment/WhoisFetcher'
 import { AppSettingsStore } from '../store/AppSettings'
+import { HistoryStore } from '../store/HistoryStore'
 import { formatExport } from '../export/ExportFormatter'
 import { SessionPlayer } from '../recording/SessionPlayer'
+import { checkForUpdates, downloadUpdate, quitAndInstall } from '../updater/AutoUpdater'
+import type { TrayManager } from '../tray/TrayManager'
 import type {
   TraceStartPayload,
   TraceStopPayload,
@@ -21,16 +24,65 @@ import type {
 
 const players = new Map<string, SessionPlayer>()
 
+// Track session start times for history duration calculation
+const sessionStartTimes = new Map<string, number>()
+
+let _tray: TrayManager | null = null
+
+export function setTrayManager(mgr: TrayManager): void {
+  _tray = mgr
+}
+
 export function registerHandlers(win: BrowserWindow): void {
   ProberManager.setWindow(win)
 
   // ── Trace ──────────────────────────────────────────────────────────────────
   ipcMain.handle(IPC.TRACE_START, async (_e, payload: TraceStartPayload) => {
-    return ProberManager.createSession(payload.config)
+    console.log('[IPC] trace:start received — target=%s protocol=%s interval=%dms',
+      payload?.config?.target, payload?.config?.protocol, payload?.config?.intervalMs)
+    try {
+      const result = await ProberManager.createSession(payload.config)
+      sessionStartTimes.set(result.sessionId, Date.now())
+      console.log('[IPC] trace:start success — sessionId=%s engineMode=%s', result.sessionId, result.engineMode)
+      _tray?.updateMenu(ProberManager.getActiveSessions())
+      return result
+    } catch (err) {
+      console.error('[IPC] trace:start FAILED — target=%s error:', payload?.config?.target, err)
+      throw err
+    }
   })
 
   ipcMain.handle(IPC.TRACE_STOP, async (_e, payload: TraceStopPayload) => {
+    // Save history entry before stopping
+    const session = ProberManager.getSession(payload.sessionId)
+    if (session) {
+      const startedAt = sessionStartTimes.get(payload.sessionId) ?? Date.now()
+      const durationMs = Date.now() - startedAt
+      const hops = session.getAllSnapshots()
+      const hopsWithIp = hops.filter((h) => h.ip !== null)
+      const avgLoss = hopsWithIp.length > 0
+        ? hopsWithIp.reduce((sum, h) => sum + h.loss, 0) / hopsWithIp.length
+        : 0
+      const finalHop = hopsWithIp[hopsWithIp.length - 1]
+      const { randomUUID } = await import('crypto')
+      const entry = {
+        id: randomUUID(),
+        target: session.config.target,
+        protocol: session.config.protocol,
+        startedAt,
+        durationMs,
+        hopCount: hopsWithIp.length,
+        avgLoss: Math.round(avgLoss * 10) / 10,
+        avgRtt: finalHop?.avg ?? null,
+        engineMode: session.currentEngineMode ?? 'native'
+      }
+      HistoryStore.add(entry)
+      sessionStartTimes.delete(payload.sessionId)
+      // Push new entry to renderer immediately so History view updates live
+      if (!win.isDestroyed()) win.webContents.send(IPC.HISTORY_ENTRY_ADDED, entry)
+    }
     ProberManager.stopSession(payload.sessionId)
+    _tray?.updateMenu(ProberManager.getActiveSessions())
   })
 
   ipcMain.handle(IPC.TRACE_RESET, async (_e, payload: TraceResetPayload) => {
@@ -137,5 +189,31 @@ export function registerHandlers(win: BrowserWindow): void {
   ipcMain.handle(IPC.PLAYBACK_STOP, async (_e, payload: PlaybackStopPayload) => {
     players.get(payload.sessionId)?.stop()
     players.delete(payload.sessionId)
+  })
+
+  // ── History ────────────────────────────────────────────────────────────────
+  ipcMain.handle(IPC.HISTORY_GET, () => {
+    return HistoryStore.getAll()
+  })
+
+  ipcMain.handle(IPC.HISTORY_CLEAR, () => {
+    HistoryStore.clear()
+  })
+
+  ipcMain.handle(IPC.HISTORY_REMOVE, (_e, id: string) => {
+    HistoryStore.remove(id)
+  })
+
+  // ── Auto-update ────────────────────────────────────────────────────────────
+  ipcMain.handle(IPC.UPDATE_CHECK, async () => {
+    await checkForUpdates()
+  })
+
+  ipcMain.handle(IPC.UPDATE_DOWNLOAD, async () => {
+    await downloadUpdate()
+  })
+
+  ipcMain.handle(IPC.UPDATE_INSTALL, () => {
+    quitAndInstall()
   })
 }

@@ -2,142 +2,119 @@ import type { IProberEngine } from './IProberEngine'
 import type { ProbeOptions, ProbeResult } from '../../../shared/types'
 
 /**
- * PingusEngine — wraps the `pingus` npm library for ICMP / UDP / TCP probing
- * with TTL control. Used when the process has administrator privileges.
+ * PingusEngine — RTT probe engine using Pingus's raw-socket ICMP implementation.
  *
- * Pingus API reference:
- *   import { PingICMP, PingUDP, PingTCP } from 'pingus'
- *   const p = new PingICMP({ host, ttl, timeout })
- *   const result = await p.send()
- *   // result: { alive: boolean, time: number, ttl: number, host: string, ... }
+ * Requires administrator privileges (raw socket).
+ *
+ * Pingus API:
+ *   PingICMP.sendAsync(options) → always resolves, never rejects
+ *   result.status:  'reply'     = ECHO_REPLY  (final hop)
+ *                   'exception' = TIME_EXCEEDED (intermediate hop)
+ *                   'timeout'   = no response
+ *                   'error'     = raw socket / DNS failure
+ *   result.reply.source: IP string of the responder (the hop)
+ *   result.time:         RTT in milliseconds
+ *
+ * Serialization: probes are queued one at a time (concurrency=1) to prevent
+ * multiple raw sockets from capturing each other's TIME_EXCEEDED replies.
  */
 export class PingusEngine implements IProberEngine {
-  // Dynamically imported to avoid Vite bundling the native addon
   private PingICMP: any
-  private PingUDP: any
-  private PingTCP: any
   private ready: Promise<void>
+  // Serialize probes — concurrent raw sockets all see all ICMP packets and
+  // can steal each other's TTL-exceeded replies, producing wrong hop data.
+  private queue: Array<() => void> = []
+  private running = false
 
   constructor() {
     this.ready = this.loadPingus()
   }
 
-  /** Resolves when pingus is loaded, rejects with the load error. */
   async waitReady(): Promise<void> {
     await this.ready
   }
 
   private async loadPingus(): Promise<void> {
-    // pingus uses a default export; named exports don't exist at the top level
-    const mod = await import('pingus')
-    const pingus = (mod as any).default ?? mod
-    this.PingICMP = pingus.PingICMP
-    this.PingUDP = pingus.PingUDP
-    this.PingTCP = pingus.PingTCP
-    if (!this.PingICMP) throw new Error('pingus.PingICMP not found — unexpected module shape')
+    // Use require() — more reliable than import() in packaged Electron (CJS) context
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pingus = require('pingus')
+    this.PingICMP = pingus.PingICMP ?? pingus.default?.PingICMP
+    if (!this.PingICMP) {
+      throw new Error(`pingus.PingICMP not found — keys: ${Object.keys(pingus).join(', ')}`)
+    }
+    if (typeof this.PingICMP.sendAsync !== 'function') {
+      throw new Error('pingus.PingICMP.sendAsync not found — unexpected Pingus version')
+    }
+    console.log('[PingusEngine] loaded, sendAsync ready')
   }
 
+  /**
+   * Serialized probe — queues the probe and waits for the previous one to finish.
+   * This prevents concurrent raw sockets from stealing each other's ICMP replies.
+   */
   async probe(target: string, ttl: number, opts: ProbeOptions): Promise<ProbeResult> {
     await this.ready
-
-    const timeoutMs = opts.timeoutMs ?? 2000
-
-    switch (opts.protocol) {
-      case 'icmp':
-        return this.probeICMP(target, ttl, timeoutMs)
-      case 'udp':
-        return this.probeUDP(target, ttl, opts.port ?? 33434 + ttl - 1, timeoutMs)
-      case 'tcp':
-        return this.probeTCP(target, ttl, opts.port ?? 80, timeoutMs)
-      default:
-        return this.probeICMP(target, ttl, timeoutMs)
-    }
+    return new Promise<ProbeResult>((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          const result = await this.sendProbe(target, ttl, opts.timeoutMs ?? 2000)
+          resolve(result)
+        } catch (err) {
+          reject(err)
+        }
+      })
+      if (!this.running) this.drainQueue()
+    })
   }
 
-  private async probeICMP(target: string, ttl: number, timeoutMs: number): Promise<ProbeResult> {
-    const pinger = new this.PingICMP({
+  private async drainQueue(): Promise<void> {
+    this.running = true
+    while (this.queue.length > 0) {
+      const next = this.queue.shift()!
+      await next()
+    }
+    this.running = false
+  }
+
+  private async sendProbe(target: string, ttl: number, timeoutMs: number): Promise<ProbeResult> {
+    const result = await this.PingICMP.sendAsync({
       host: target,
       ttl,
-      timeout: timeoutMs
+      timeout: timeoutMs,
+      bytes: 32
     })
 
-    const result = await pinger.send()
+    console.log(`[PingusEngine] ttl=${ttl} status=${result.status} time=${result.time} source=${result.reply?.source}`)
 
-    // result.alive = true  → echo reply (final hop)
-    // result.alive = false → TTL-exceeded (intermediate hop) or timeout
-    if (!result.host && !result.alive) {
+    if (result.status === 'timeout') {
       const err = new Error('timeout')
       ;(err as any).code = 'TIMEOUT'
       throw err
     }
 
-    return {
-      fromIP: result.host ?? result.ip ?? target,
-      rttMs: result.time ?? 0,
-      isFinalHop: result.alive === true,
-      hopIndex: ttl
-    }
-  }
-
-  private async probeUDP(
-    target: string,
-    ttl: number,
-    port: number,
-    timeoutMs: number
-  ): Promise<ProbeResult> {
-    const pinger = new this.PingUDP({
-      host: target,
-      ttl,
-      port,
-      timeout: timeoutMs
-    })
-
-    const result = await pinger.send()
-
-    if (!result.host && !result.alive) {
-      const err = new Error('timeout')
-      ;(err as any).code = 'TIMEOUT'
+    if (result.status === 'error') {
+      const msg = String(result.error ?? 'error')
+      const err = new Error(msg)
+      ;(err as any).code = msg
       throw err
     }
 
-    return {
-      fromIP: result.host ?? target,
-      rttMs: result.time ?? 0,
-      isFinalHop: result.alive === true,
-      hopIndex: ttl
-    }
-  }
-
-  private async probeTCP(
-    target: string,
-    ttl: number,
-    port: number,
-    timeoutMs: number
-  ): Promise<ProbeResult> {
-    const pinger = new this.PingTCP({
-      host: target,
-      ttl,
-      port,
-      timeout: timeoutMs
-    })
-
-    const result = await pinger.send()
-
-    if (!result.host && !result.alive) {
-      const err = new Error('timeout')
-      ;(err as any).code = 'TIMEOUT'
-      throw err
-    }
+    // 'reply' = ECHO_REPLY (destination reached), 'exception' = TIME_EXCEEDED (intermediate hop)
+    const isFinalHop = result.status === 'reply'
+    const fromIP: string =
+      result.reply?.source ??
+      result.ip?.label ??
+      String(result.ip ?? target)
 
     return {
-      fromIP: result.host ?? target,
-      rttMs: result.time ?? 0,
-      isFinalHop: result.alive === true,
+      fromIP,
+      rttMs: typeof result.time === 'number' && result.time >= 0 ? result.time : 0,
+      isFinalHop,
       hopIndex: ttl
     }
   }
 
   destroy(): void {
-    // pingus manages its own socket lifecycle per probe; no persistent handles to clean up
+    this.queue.length = 0
   }
 }

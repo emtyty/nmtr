@@ -109,8 +109,8 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
         disabled={isRunning || loading}
       >
         <option value="icmp">ICMP</option>
-        <option value="udp">UDP</option>
-        <option value="tcp">TCP</option>
+        <option value="udp" disabled>UDP (soon)</option>
+        <option value="tcp" disabled>TCP (soon)</option>
       </select>
 
       {/* Port (UDP/TCP only) */}
