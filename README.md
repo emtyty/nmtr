@@ -1,124 +1,124 @@
-# nmtr — Network Diagnostic Tool
+# {NMTR} — Network Diagnostic Tool
 
-A modern rewrite of WinMTR as an Electron desktop application. Combines traceroute and continuous ping into a live dashboard with per-hop statistics, AS/ISP geolocation enrichment, latency sparklines, and session recording/playback.
+A modern rewrite of WinMTR as an Electron desktop application for Windows. Combines continuous traceroute and real-time ping into a live dashboard with per-hop statistics, geolocation, session recording, and trace history.
 
 ![nmtr screenshot](nmtr-ui-mockup.png)
 
 ## Features
 
-- **Real-time ICMP tracing** — continuous per-hop probing with live stats table
-- **Protocol support** — ICMP (default), UDP, TCP with configurable port
-- **Per-hop stats** — Loss%, Sent, Recv, Last / Avg / Best / Worst (ms), Jitter
-- **Sparklines** — 60-point rolling latency trend per hop; click to open detail chart
-- **Session RTT chart** — live heartbeat graph above the hop table tracking final-hop RTT over the full session (up to 300 samples), color-coded green/yellow/red by latency threshold, collapsible
-- **Auto-bottleneck highlight** — automatically detects the hop with the largest RTT increase vs its predecessor (≥10 ms delta); marked with `▶` in the # column and a subtle yellow row tint
-- **Route change detection** — detects when a hop's IP address changes mid-trace, marks the affected hop with `▲` in the # column, and logs all changes in the Route Events panel (collapsed by default)
-- **AS / ISP enrichment** — autonomous system and ISP name per hop via ip-api.com
-- **Geolocation** — country and city per hop
-- **Reverse DNS** — hostname resolution with LRU cache
-- **IP WHOIS** — right-click any hop → View WHOIS
-- **Keyboard shortcuts** — operate without the mouse (see table below)
+- **Parallel ICMP engine** — calls `IcmpSendEcho` from `Iphlpapi.dll` directly via `koffi` FFI (no subprocess spawning), all TTLs probed in parallel with no concurrency cap, kernel-measured RTT
+- **Per-hop statistics** — Loss%, Sent, Recv, Last / Avg / Best / Worst (ms), Jitter, 60-point rolling sparkline
+- **RTT heartbeat chart** — live chart above the hop table tracking final-hop RTT over the session (up to 300 samples), color-coded by latency
+- **Bottleneck highlight** — automatically marks the hop with the largest RTT increase (≥10 ms delta) with `▶` and a yellow row tint
+- **Route change detection** — detects mid-session IP changes per hop, marks with `▲`, logs events in the Route Events panel
+- **Geo world map** — fully offline SVG map (bundled TopoJSON, zero network requests) with markers for every geo-located hop and hover tooltips
+- **Network path graph** — interactive node graph of the hop topology
+- **Trace history** — completed sessions are automatically saved and viewable in the History tab; updates live when a trace stops
+- **Session recording / playback** — save traces to `.nmtr` files and replay at adjustable speed with a scrubber
+- **Export** — Text (WinMTR-compatible), CSV, HTML; text copies directly to clipboard
+- **WHOIS lookup** — right-click any hop → View WHOIS
 - **Multi-tab traces** — run parallel traces to multiple targets simultaneously
-- **Session recording / playback** — record to `.nmtr` file, replay with scrubber
-- **Export** — Text (WinMTR-compatible), CSV, HTML formats
-- **Dark theme** — dark-first UI with system tray support
-- **Admin mode** — full ICMP/UDP/TCP probing via Pingus (requires elevation)
-- **No-admin fallback** — ICMP-only mode via `tracert.exe` + `ping.exe`
+- **System tray** — minimize to tray, context menu shows active sessions
+- **Auto-updater** — GitHub Releases integration via `electron-updater`
+- **Keyboard shortcuts** — `Ctrl+Enter` start/stop, `Ctrl+R` reset, `Ctrl+E` export, `Ctrl+,` settings
+
+## Requirements
+
+- **Windows 10 / 11 x64**
+- **Administrator privileges** — required for raw ICMP probing (installer sets `requireAdministrator`)
+- Node.js 18+ and npm 9+ for development
+
+## Download
+
+Grab the latest installer or portable exe from the [Releases](../../releases) page.
+
+## Development
+
+```bash
+# Install dependencies
+npm install --legacy-peer-deps
+
+# Rebuild native modules (koffi) against the bundled Electron version
+npm run rebuild
+
+# Start dev server with hot reload
+npm run dev
+
+# Production build (renderer + main bundles)
+npm run build
+
+# Build Windows installer (NSIS) + portable exe
+npm run dist:win
+```
+
+> Run the terminal **as Administrator** to enable full ICMP probing during development.
 
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+Enter` | Start trace / Stop running trace |
+| `Ctrl+Enter` | Start / stop the active trace |
 | `Ctrl+R` | Reset active session stats |
 | `Ctrl+E` | Export as text → copy to clipboard |
-| `Ctrl+,` | Open Settings dialog |
-
-Shortcuts are shown in button tooltips throughout the UI — hover over Start, Stop, Reset, and the settings gear icon to see the hint.
-
-## Requirements
-
-- **Windows 10 / 11** (v1 — Windows only)
-- **Node.js 18+**
-- **npm 9+**
-- Administrator privileges recommended for full protocol support
-
-## Getting Started
-
-### Install dependencies
-
-```bash
-npm install
-```
-
-If `pingus` (native addon) fails to build, rebuild it against the bundled Electron version:
-
-```bash
-npm run rebuild
-```
-
-### Run in development
-
-```bash
-npm run dev
-```
-
-Opens the app with hot-module reload. For full ICMP/UDP/TCP probing, run the terminal **as Administrator**.
-
-### Build for production
-
-```bash
-# Build renderer + main bundles only
-npm run build
-
-# Build + package as Windows installer (NSIS) + portable EXE
-npm run dist:win
-
-# Cross-platform (builds for current OS)
-npm run dist
-```
-
-Output is written to `dist/`.
+| `Ctrl+,` | Open Settings |
 
 ## Project Structure
 
 ```
 src/
-├── shared/          # Shared TypeScript types (HopStats, TraceSession, …)
-├── main/            # Electron main process
-│   ├── ipc/         # IPC channel names + handlers
-│   ├── prober/      # ProberSession, StatsAggregator, PingusEngine, NativeEngine
-│   ├── enrichment/  # GeoIP (ip-api.com) + WHOIS lookup
-│   ├── recording/   # Session recorder + player
-│   ├── export/      # Text / CSV / HTML formatters
-│   ├── store/       # Persisted app settings (electron-store)
-│   └── tray/        # System tray manager
-├── preload/         # contextBridge → window.nmtrAPI
-└── renderer/        # React + Tailwind UI
-    ├── store/        # Zustand stores (trace sessions, settings, recording, UI)
-    ├── components/   # Layout, trace table, controls, dialogs
-    └── hooks/        # useTraceSession (IPC → store), useKeyboardShortcuts
+├── shared/              # Shared TypeScript types (HopStats, TraceSession, HistoryEntry, …)
+├── main/                # Electron main process
+│   ├── ipc/             # IPC channel constants + request handlers
+│   ├── prober/          # ProberSession, StatsAggregator, NativeEngine (ICMP FFI), PingusEngine
+│   ├── enrichment/      # GeoIP (ip-api.com, LRU-cached) + WHOIS fetcher
+│   ├── recording/       # Session recorder + player (.nmtr NDJSON format)
+│   ├── export/          # Text / CSV / HTML formatters
+│   ├── store/           # electron-store wrappers (AppSettings, HistoryStore)
+│   ├── tray/            # System tray manager
+│   ├── updater/         # Auto-updater (electron-updater)
+│   └── utils/           # Shared utilities (logo icon pixel renderer)
+├── preload/             # contextBridge → window.nmtrAPI
+└── renderer/            # React + Tailwind UI
+    ├── store/           # Zustand stores (trace, UI, settings, recording, history)
+    ├── components/
+    │   ├── controls/    # TraceControls, ExportMenu
+    │   ├── dialogs/     # Settings, WHOIS, latency detail, tracert modal
+    │   ├── layout/      # TitleBar, IconNav, Sidebar, StatusBar
+    │   ├── network-map/ # Geo map (react-simple-maps), path graph (@xyflow/react)
+    │   ├── playback/    # Playback bar
+    │   ├── trace/       # HopTable, SessionRttChart, RouteEventsPanel
+    │   ├── update/      # Update banner
+    │   └── views/       # HistoryView
+    └── hooks/           # useTraceSession (IPC → store), useKeyboardShortcuts, useUpdater
 ```
 
 ## How It Works
 
-1. **Start** — enter a hostname or IP, choose protocol, click Start
-2. **Engine selection** — if running as Administrator, uses `PingusEngine` (raw ICMP/UDP/TCP with TTL control); otherwise falls back to `NativeEngine` (wraps `ping.exe` / `tracert.exe`, max 8 concurrent processes)
-3. **Probing loop** — sends one probe per TTL per interval, staggering start times evenly over `intervalMs/3` to avoid ICMP bursts; per-hop timeouts are adaptive (EMA-based, updated each round) so fast hops don't block slow ones
-4. **Route change detection** — each round compares the replying IP to the stored IP; a change emits `HOP_ROUTE_CHANGED`, re-triggers DNS/geo enrichment, and logs the event
-5. **Enrichment** — each new hop IP is queued for AS/ISP + geo lookup via ip-api.com (rate-limited to 40 req/min)
-6. **IPC batching** — all hop stats are sent in a single `hops:batch` event per probe round (300 ms throttle in renderer)
-7. **RTT chart** — each batch appends the final-hop's last RTT to a 300-point ring buffer stored per session; the `SessionRttChart` component reads this directly from the Zustand store
+1. **Session start** — `tracert` is spawned once to discover the initial hop list; result is stored and accessible via the 📡 button
+2. **Parallel probing** — for each TTL 1…maxHops, a dedicated loop runs in parallel; each probe calls `IcmpSendEcho` on a thread-pool thread via `koffi` async with the TTL set in `IP_OPTION_INFORMATION`
+3. **Reply parsing** — `IP_TTL_EXPIRED_TRANSIT` (11013) identifies intermediate hops; `IP_SUCCESS` (0) identifies the destination; RTT is read directly from `ICMP_ECHO_REPLY` (kernel-measured)
+4. **Enrichment** — each new hop IP is queued for ASN/ISP/geo lookup via ip-api.com (rate-limited, LRU-cached); DNS reverse lookup runs concurrently
+5. **Route change detection** — each round compares the replying IP to the stored IP; a change emits `hop:routeChanged`, re-triggers enrichment, and logs the event
+6. **IPC batching** — all hop stats are sent in a single `hops:batch` event per probe round; the renderer applies a 300 ms throttle inside `startTransition` to stay responsive
+7. **History** — when a trace stops, a summary entry is saved to `nmtr-history.json` via electron-store and pushed to the renderer immediately via `history:entryAdded`
 
-## Performance Notes
+## Tech Stack
 
-- 3 concurrent traces at 500 ms interval typically use < 5% CPU
-- Probe stagger spreads 30 TTL probes evenly over `intervalMs/3` ms to prevent ICMP bursts
-- Adaptive per-hop timeouts (EMA α=0.25) reduce `Promise.allSettled` wait time for fast hops
-- `NativeEngine` caps concurrent `ping.exe` processes to 8 via p-queue
-- UI updates are batched (300 ms) and wrapped in React `startTransition` to keep the interface responsive
-- `React.memo` on `HopTable` and `HopRow` prevents re-renders for unchanged rows
+| Layer | Tech |
+|-------|------|
+| Shell | Electron 35 |
+| Renderer | React 18 · TypeScript · Tailwind CSS v3 |
+| Bundler | electron-vite + Vite 6 |
+| State | Zustand |
+| UI primitives | Radix UI |
+| ICMP engine | koffi FFI → `Iphlpapi.dll` `IcmpSendEcho` |
+| Geo enrichment | ip-api.com (LRU-cached) |
+| World map | react-simple-maps + world-atlas (offline TopoJSON) |
+| Path graph | @xyflow/react |
+| Persistence | electron-store |
+| Auto-update | electron-updater |
+| Packaging | electron-builder (NSIS installer + portable) |
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE)
