@@ -6,7 +6,7 @@ A modern rewrite of WinMTR as an Electron desktop application for Windows. Combi
 
 ## Features
 
-- **Parallel ICMP engine** — calls `IcmpSendEcho` from `Iphlpapi.dll` directly via `koffi` FFI (no subprocess spawning), all TTLs probed in parallel with no concurrency cap, kernel-measured RTT
+- **Parallel ICMP engine** — calls `IcmpSendEcho` from `Iphlpapi.dll` directly via `koffi` FFI, all TTLs probed in parallel with no concurrency cap, kernel-measured RTT; falls back to `ping.exe` subprocess if the ICMP API cannot be loaded
 - **Per-hop statistics** — Loss%, Sent, Recv, Last / Avg / Best / Worst (ms), Jitter, 60-point rolling sparkline
 - **RTT heartbeat chart** — live chart above the hop table tracking final-hop RTT over the session (up to 300 samples), color-coded by latency
 - **Bottleneck highlight** — automatically marks the hop with the largest RTT increase (≥10 ms delta) with `▶` and a yellow row tint
@@ -16,6 +16,7 @@ A modern rewrite of WinMTR as an Electron desktop application for Windows. Combi
 - **Trace history** — completed sessions are automatically saved and viewable in the History tab; updates live when a trace stops
 - **Session recording / playback** — save traces to `.nmtr` files and replay at adjustable speed with a scrubber
 - **Export** — Text (WinMTR-compatible), CSV, HTML; text copies directly to clipboard
+- **Latency detail** — click any hop row to open a full RTT/loss chart (60-point sparkline with avg reference line, live-updating every 1 s) plus stat panel
 - **WHOIS lookup** — right-click any hop → View WHOIS
 - **Multi-tab traces** — run parallel traces to multiple targets simultaneously
 - **System tray** — minimize to tray, context menu shows active sessions
@@ -89,12 +90,13 @@ src/
     │   ├── trace/       # HopTable, SessionRttChart, RouteEventsPanel
     │   ├── update/      # Update banner
     │   └── views/       # HistoryView
+    ├── lib/             # Utilities (scrollGate — hop-table scroll locking)
     └── hooks/           # useTraceSession (IPC → store), useKeyboardShortcuts, useUpdater
 ```
 
 ## How It Works
 
-1. **Session start** — `tracert` is spawned once to discover the initial hop list; result is stored and accessible via the 📡 button
+1. **Session start** — `tracert` is spawned to discover the initial hop list and capture raw output for the 📡 TracertResultModal; hops discovered here seed the initial TTL set for the prober
 2. **Parallel probing** — for each TTL 1…maxHops, a dedicated loop runs in parallel; each probe calls `IcmpSendEcho` on a thread-pool thread via `koffi` async with the TTL set in `IP_OPTION_INFORMATION`
 3. **Reply parsing** — `IP_TTL_EXPIRED_TRANSIT` (11013) identifies intermediate hops; `IP_SUCCESS` (0) identifies the destination; RTT is read directly from `ICMP_ECHO_REPLY` (kernel-measured)
 4. **Enrichment** — each new hop IP is queued for ASN/ISP/geo lookup via ip-api.com (rate-limited, LRU-cached); DNS reverse lookup runs concurrently
@@ -113,6 +115,7 @@ src/
 | UI primitives | Radix UI |
 | ICMP engine | koffi FFI → `Iphlpapi.dll` `IcmpSendEcho` |
 | Geo enrichment | ip-api.com (LRU-cached) |
+| Charts | recharts (RTT heartbeat + latency detail) |
 | World map | react-simple-maps + world-atlas (offline TopoJSON) |
 | Path graph | @xyflow/react |
 | Persistence | electron-store |

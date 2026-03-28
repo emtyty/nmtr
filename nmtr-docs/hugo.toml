@@ -1,0 +1,28 @@
+baseURL = ""
+title   = "NMTR Documentation"
+theme   = "hugo-book"
+enableGitInfo = false
+relativeURLs  = true
+uglyURLs      = true
+
+[markup.goldmark.renderer]
+  unsafe = true
+
+[params]
+  BookSection         = "/"
+  BookToC             = true
+  BookSearch          = true
+  BookCollapseSection = true
+  BookRepo            = "https://github.com/your-org/nmtr"
+  BookEditPath        = "edit/main/nmtr-docs/content"
+  BookMenuBundle      = false
+
+[[menu.before]]
+  name   = "GitHub"
+  url    = "https://github.com/your-org/nmtr"
+  weight = 10
+
+[[menu.after]]
+  name   = "Releases"
+  url    = "https://github.com/your-org/nmtr/releases"
+  weight = 10
