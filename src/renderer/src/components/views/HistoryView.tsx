@@ -43,11 +43,11 @@ export function HistoryView(): React.JSX.Element {
       <div className="flex items-center justify-between px-5 py-3 border-b border-border-default flex-shrink-0">
         <div>
           <h2 className="text-base font-semibold text-fg-default">Trace History</h2>
-          <p className="text-xs text-fg-muted mt-0.5">{entries.length} session{entries.length !== 1 ? 's' : ''} recorded</p>
+          <p className="text-sm text-fg-muted mt-0.5">{entries.length} session{entries.length !== 1 ? 's' : ''} recorded</p>
         </div>
         {entries.length > 0 && (
           <button
-            className="text-xs px-3 py-1.5 rounded border border-border-default text-fg-muted hover:border-accent-red hover:text-accent-red transition-colors"
+            className="text-sm px-3 py-1.5 rounded border border-border-default text-fg-muted hover:border-accent-red hover:text-accent-red transition-colors"
             onClick={clear}
             title="Clear all history"
           >
@@ -60,15 +60,15 @@ export function HistoryView(): React.JSX.Element {
         <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 text-fg-muted">
           <div className="text-5xl opacity-20">🕐</div>
           <div>
-            <p className="text-sm font-medium text-fg-subtle mb-1">No history yet</p>
-            <p className="text-xs">Completed traces will appear here.</p>
+            <p className="text-base font-medium text-fg-subtle mb-1">No history yet</p>
+            <p className="text-sm">Completed traces will appear here.</p>
           </div>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-base">
             <thead className="sticky top-0 bg-canvas-subtle border-b border-border-default z-10">
-              <tr className="text-fg-muted font-medium uppercase tracking-wider">
+              <tr className="text-fg-muted font-semibold uppercase tracking-wider text-sm">
                 <th className="text-left px-5 py-2.5 w-48">Target</th>
                 <th className="text-left px-3 py-2.5 w-24">Date</th>
                 <th className="text-left px-3 py-2.5 w-20">Duration</th>
@@ -96,7 +96,7 @@ export function HistoryView(): React.JSX.Element {
                     {formatDuration(entry.durationMs)}
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium uppercase bg-canvas-hover text-fg-muted">
+                    <span className="px-1.5 py-0.5 rounded text-sm font-medium uppercase bg-canvas-hover text-fg-muted">
                       {entry.protocol}
                     </span>
                   </td>

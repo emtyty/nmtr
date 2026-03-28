@@ -13,19 +13,19 @@ export function TracertResultModal(): React.JSX.Element {
 
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border-muted flex-shrink-0">
-            <span className="text-sm font-semibold text-fg-default">
+            <span className="text-base font-semibold text-fg-default">
               Tracert Discovery
               {tracertResult && (
                 <span className="ml-2 text-fg-muted font-normal">→ {tracertResult.target}</span>
               )}
             </span>
             {tracertResult?.error && (
-              <span className="ml-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/15 text-red-400">
+              <span className="ml-1 px-2 py-0.5 rounded text-sm font-medium bg-red-500/15 text-red-400">
                 Error
               </span>
             )}
             {!tracertResult?.error && tracertResult && (
-              <span className="ml-1 px-2 py-0.5 rounded text-xs font-medium bg-green-500/15 text-green-400">
+              <span className="ml-1 px-2 py-0.5 rounded text-sm font-medium bg-green-500/15 text-green-400">
                 {tracertResult.hops.length} hop{tracertResult.hops.length !== 1 ? 's' : ''} found
               </span>
             )}
@@ -37,7 +37,7 @@ export function TracertResultModal(): React.JSX.Element {
           <div className="flex flex-col gap-0 overflow-hidden flex-1 min-h-0">
             {/* Error banner */}
             {tracertResult?.error && (
-              <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20 text-red-400 text-xs font-mono flex-shrink-0">
+              <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20 text-red-400 text-sm font-mono flex-shrink-0">
                 {tracertResult.error}
               </div>
             )}
@@ -45,15 +45,15 @@ export function TracertResultModal(): React.JSX.Element {
             {/* Parsed hops table — grows to fill available space, scrollable */}
             {tracertResult && tracertResult.hops.length > 0 && (
               <div className="flex flex-col flex-1 min-h-0 border-b border-border-muted">
-                <div className="px-4 py-2 text-xs text-fg-subtle font-medium uppercase tracking-wider flex-shrink-0">
+                <div className="px-4 py-2 text-sm text-fg-subtle font-medium uppercase tracking-wider flex-shrink-0">
                   Parsed Hops ({tracertResult.hops.length})
                 </div>
                 <div className="overflow-y-auto flex-1 min-h-0">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-base">
                     <thead className="sticky top-0 bg-canvas-default">
                       <tr className="text-fg-subtle border-b border-border-muted">
-                        <th className="text-left px-4 py-1 font-medium w-16">TTL</th>
-                        <th className="text-left px-4 py-1 font-medium">IP Address</th>
+                        <th className="text-left px-4 py-1 font-medium w-16 text-sm">TTL</th>
+                        <th className="text-left px-4 py-1 font-medium text-sm">IP Address</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -71,10 +71,10 @@ export function TracertResultModal(): React.JSX.Element {
 
             {/* Raw output — fixed height, scrollable */}
             <div className="flex flex-col flex-shrink-0" style={{ maxHeight: '35%' }}>
-              <div className="px-4 py-2 text-xs text-fg-subtle font-medium uppercase tracking-wider border-b border-border-muted flex-shrink-0">
+              <div className="px-4 py-2 text-sm text-fg-subtle font-medium uppercase tracking-wider border-b border-border-muted flex-shrink-0">
                 Raw Output
               </div>
-              <pre className="overflow-auto px-4 py-3 text-xs font-mono text-fg-muted leading-relaxed whitespace-pre-wrap break-all flex-1 min-h-0">
+              <pre className="overflow-auto px-4 py-3 text-sm font-mono text-fg-muted leading-relaxed whitespace-pre-wrap break-all flex-1 min-h-0">
                 {tracertResult?.rawOutput || '(no output)'}
               </pre>
             </div>
@@ -84,7 +84,7 @@ export function TracertResultModal(): React.JSX.Element {
           <div className="flex justify-end px-4 py-3 border-t border-border-muted flex-shrink-0">
             <button
               onClick={closeTracertModal}
-              className="px-4 py-1.5 text-sm rounded bg-canvas-subtle border border-border-default text-fg-default hover:bg-canvas-hover transition-colors"
+              className="px-4 py-1.5 text-base rounded bg-canvas-subtle border border-border-default text-fg-default hover:bg-canvas-hover transition-colors"
             >
               Close
             </button>

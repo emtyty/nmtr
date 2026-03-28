@@ -9,12 +9,12 @@ export function TitleBar(): React.JSX.Element {
     <div className="drag-region flex h-9 items-center justify-between bg-canvas-subtle border-b border-border-default flex-shrink-0 select-none">
       {/* Left: logo */}
       <div className="flex items-center gap-2.5 px-4 no-drag pointer-events-none">
-        <span className="font-mono font-bold tracking-tight text-sm leading-none">
+        <span className="font-mono font-bold tracking-tight text-[21px] leading-none">
           <span className="text-fg-muted">{`{`}</span>
           <span className="text-accent-blue">NMTR</span>
           <span className="text-fg-muted">{`}`}</span>
         </span>
-        <span className="text-fg-subtle text-xs font-medium tracking-wide uppercase">Network Diagnostic</span>
+        <span className="text-fg-subtle text-[18px] font-medium tracking-wide uppercase">Network Diagnostic</span>
       </div>
 
       {/* Right: Windows-style window controls */}

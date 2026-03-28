@@ -72,7 +72,7 @@ export function TraceView(): React.JSX.Element {
             {tracertResult && tracertResult.sessionId === activeSessionId && (
               <button
                 onClick={() => openTracertModal()}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded border border-border-default text-fg-muted hover:text-fg-default hover:bg-canvas-subtle transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-base rounded border border-border-default text-fg-muted hover:text-fg-default hover:bg-canvas-subtle transition-colors"
                 title="View tracert discovery output"
               >
                 <span>📡</span>
