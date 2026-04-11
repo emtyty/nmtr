@@ -127,7 +127,7 @@ export function TraceView(): React.JSX.Element {
             />
           )}
           {activeTab === 'path' && (
-            <NetworkPathMap hops={session.hops} onWhois={setWhoisIp} />
+            <NetworkPathMap hops={session.hops} routeEvents={session.routeEvents} onWhois={setWhoisIp} />
           )}
           {activeTab === 'map' && (
             <NetworkGeoMap hops={session.hops} />
