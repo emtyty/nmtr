@@ -53,11 +53,15 @@ export class SessionPlayer {
       }
     }
 
+    if (!this.meta) {
+      throw new Error('Invalid .nmtr file: no metadata line found')
+    }
+
     const durationMs =
       this.frames.length > 0 ? this.frames[this.frames.length - 1].t : 0
 
     return {
-      meta: this.meta!,
+      meta: this.meta,
       durationMs,
       frameCount: this.frames.length
     }
@@ -76,6 +80,8 @@ export class SessionPlayer {
   }
 
   seek(timestampMs: number): void {
+    if (this.frames.length === 0) return
+
     // Binary search for frame
     let lo = 0
     let hi = this.frames.length - 1

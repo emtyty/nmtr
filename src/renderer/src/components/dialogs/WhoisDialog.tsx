@@ -9,13 +9,18 @@ interface WhoisDialogProps {
 export function WhoisDialog({ ip, onClose }: WhoisDialogProps): React.JSX.Element {
   const [data, setData] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!ip) return
     setLoading(true)
     setData(null)
+    setError(null)
     window.nmtrAPI.whoisFetch({ ip }).then((r) => {
       setData(r.raw)
+    }).catch((err) => {
+      setError(err instanceof Error ? err.message : 'WHOIS lookup failed')
+    }).finally(() => {
       setLoading(false)
     })
   }, [ip])
@@ -35,6 +40,12 @@ export function WhoisDialog({ ip, onClose }: WhoisDialogProps): React.JSX.Elemen
           </div>
           <div className="flex-1 overflow-auto p-4">
             {loading && <div className="text-fg-muted text-base">Loading…</div>}
+            {error && (
+              <div className="text-red-400 text-sm">
+                <p className="font-semibold mb-1">WHOIS lookup failed</p>
+                <p className="text-xs text-fg-muted">{error}</p>
+              </div>
+            )}
             {data && (
               <pre className="text-xs text-fg-default font-mono whitespace-pre-wrap leading-5">{data}</pre>
             )}

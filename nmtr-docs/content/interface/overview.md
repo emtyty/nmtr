@@ -27,12 +27,13 @@ The custom title bar displays the application name and provides window controls 
 
 ## Icon Navigation Bar (Nav)
 
-A narrow vertical icon strip on the far left switches between the two top-level views:
+A narrow vertical icon strip on the far left switches between the three top-level views:
 
 | Icon | View |
 |---|---|
 | Network icon | **Traces** — active sessions and the hop table |
 | Clock/history icon | **History** — completed session log |
+| Topology icon | **LAN** — local network scanner and topology diagram |
 
 ## Sidebar
 

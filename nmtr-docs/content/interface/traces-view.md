@@ -12,10 +12,8 @@ The Traces view is the main workspace. It is selected by default and is where yo
 Runs across the top of the content area and contains:
 
 - **Target field** — hostname or IP address to trace
-- **Protocol selector** — ICMP / UDP / TCP
+- **Protocol** — ICMP (displayed as a static label)
 - **Interval** — probe frequency (500 ms to 5 s)
-- **Packet size** — payload size in bytes (28–1472)
-- **Max Hops** — maximum TTL to probe (1–30)
 - **Start / Stop button** — toggles the active session (`Ctrl+Enter`)
 - **Reset button** — clears stats without stopping (`Ctrl+R`)
 

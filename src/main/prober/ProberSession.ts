@@ -37,6 +37,8 @@ export class ProberSession extends EventEmitter {
   // Authoritative last-known IP per TTL — separate from StatsAggregator for O(1) change detection
   private hopIPs: Map<number, string> = new Map()
   private routeChangeLog: RouteChangeEvent[] = []
+  // Incremented on stop/reset to invalidate in-flight async callbacks (DNS, GeoIP)
+  private generation = 0
 
   constructor(id: string, config: TraceConfig, window: BrowserWindow) {
     super()
@@ -107,6 +109,7 @@ export class ProberSession extends EventEmitter {
 
   stop(): void {
     this.clearTimers()
+    this.generation++ // Invalidate all in-flight DNS/GeoIP callbacks
     this.status = 'stopped'
     console.log(`[ProberSession] ${this.id} stopped`)
     this.engine?.destroy()
@@ -234,18 +237,9 @@ export class ProberSession extends EventEmitter {
         agg.setIP(result.fromIP)
         this.emitHopNew(ttl, result.fromIP)
 
-        // Async DNS + enrichment
+        // Async DNS + enrichment (generation-guarded to cancel on stop)
         if (this.config.resolveHostnames) {
-          reverseDns(result.fromIP).then((hostname) => {
-            if (hostname && this.isWindowAlive()) {
-              agg.setHostname(hostname)
-              this.window.webContents.send(IPC.DNS_RESOLVED, {
-                sessionId: this.id,
-                hopIndex: ttl,
-                hostname
-              })
-            }
-          })
+          this.resolveDns(result.fromIP, ttl, agg)
         }
         this.triggerEnrichment(ttl, result.fromIP)
       } else if (result.fromIP && this.hopIPs.get(ttl) !== result.fromIP) {
@@ -269,16 +263,7 @@ export class ProberSession extends EventEmitter {
 
         this.triggerEnrichment(ttl, result.fromIP)
         if (this.config.resolveHostnames) {
-          reverseDns(result.fromIP).then((hostname) => {
-            if (hostname && this.isWindowAlive()) {
-              agg.setHostname(hostname)
-              this.window.webContents.send(IPC.DNS_RESOLVED, {
-                sessionId: this.id,
-                hopIndex: ttl,
-                hostname
-              })
-            }
-          })
+          this.resolveDns(result.fromIP, ttl, agg)
         }
       }
 
@@ -317,18 +302,41 @@ export class ProberSession extends EventEmitter {
     this.rttEstimates.set(ttl, prev !== undefined ? prev * 0.75 + rttMs * 0.25 : rttMs)
   }
 
+  private resolveDns(ip: string, ttl: number, agg: StatsAggregator): void {
+    const gen = this.generation
+    reverseDns(ip)
+      .then((hostname) => {
+        if (hostname && gen === this.generation && this.isWindowAlive()) {
+          agg.setHostname(hostname)
+          this.window.webContents.send(IPC.DNS_RESOLVED, {
+            sessionId: this.id,
+            hopIndex: ttl,
+            hostname
+          })
+        }
+      })
+      .catch((err) => {
+        console.warn(`[ProberSession] ${this.id} DNS reverse failed for ${ip} (hop ${ttl}):`, err)
+      })
+  }
+
   private triggerEnrichment(ttl: number, ip: string): void {
     const agg = this.ensureAggregator(ttl)
-    GeoIPLookup.lookup(ip).then((enrichment) => {
-      if (enrichment && this.isWindowAlive()) {
-        agg.setEnrichment(enrichment)
-        this.window.webContents.send(IPC.HOP_ENRICHED, {
-          sessionId: this.id,
-          hopIndex: ttl,
-          enrichment
-        })
-      }
-    })
+    const gen = this.generation
+    GeoIPLookup.lookup(ip)
+      .then((enrichment) => {
+        if (enrichment && gen === this.generation && this.isWindowAlive()) {
+          agg.setEnrichment(enrichment)
+          this.window.webContents.send(IPC.HOP_ENRICHED, {
+            sessionId: this.id,
+            hopIndex: ttl,
+            enrichment
+          })
+        }
+      })
+      .catch((err) => {
+        console.warn(`[ProberSession] ${this.id} GeoIP failed for ${ip} (hop ${ttl}):`, err)
+      })
   }
 
   private ensureAggregator(ttl: number): StatsAggregator {

@@ -22,6 +22,8 @@ NMTR is a modern Windows desktop application for continuous network path analysi
 - **Geo world map** — fully offline SVG map with markers for every geo-located hop
 - **Network path graph** — interactive node graph of the hop topology
 - **Latency detail** — click any hop for a full RTT/loss chart with live updates
+- **LAN network topology** — scan your local subnet, discover devices, detect types (phone/laptop/camera/IoT), identify vendors, visualize as hierarchical topology diagram
+- **VPN / WARP detection** — automatically detects VPN tunnels and Cloudflare WARP, shown in topology
 - **Session recording / playback** — save traces to `.nmtr` files and replay at adjustable speed
 - **Export** — Text (WinMTR-compatible), CSV, HTML
 - **Multi-tab traces** — run parallel traces to multiple targets simultaneously
@@ -34,6 +36,7 @@ NMTR is a modern Windows desktop application for continuous network path analysi
 | [Interface]({{< relref "/interface" >}}) | Window layout, navigation, sidebar, status bar |
 | [Tracing]({{< relref "/tracing" >}}) | Hop table, charts, bottleneck, route detection |
 | [Visualizations]({{< relref "/visualizations" >}}) | Geo world map and network path graph |
+| [LAN Network]({{< relref "/lan-network" >}}) | Subnet scanning, device detection, topology diagram |
 | [Recording & Playback]({{< relref "/recording" >}}) | Save and replay sessions |
 | [Export & Lookup]({{< relref "/export" >}}) | Text, CSV, HTML export and WHOIS |
 | [Configuration]({{< relref "/configuration" >}}) | Settings and keyboard shortcuts |

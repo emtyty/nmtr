@@ -66,6 +66,9 @@ async function fetchIpApi(ip: string): Promise<EnrichmentData> {
   }
 }
 
+// Maximum pending lookups — drop excess requests to prevent memory spikes
+const MAX_QUEUE_SIZE = 100
+
 export const GeoIPLookup = {
   async lookup(ip: string): Promise<EnrichmentData> {
     if (!ip) return PRIVATE_RESULT
@@ -75,6 +78,12 @@ export const GeoIPLookup = {
 
     if (isPrivate(ip)) {
       cache.set(ip, PRIVATE_RESULT)
+      return PRIVATE_RESULT
+    }
+
+    // Drop request if queue is saturated (prevents unbounded memory growth)
+    if (queue.size + queue.pending >= MAX_QUEUE_SIZE) {
+      console.warn('[GeoIPLookup] Queue saturated, dropping request for IP:', ip)
       return PRIVATE_RESULT
     }
 

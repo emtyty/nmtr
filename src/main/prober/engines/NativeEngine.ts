@@ -24,8 +24,8 @@ const REPLY_BUFFER_SIZE = 8192 + 64
 // WinMTR uses IPFLAG_DONT_FRAGMENT = 0x02
 const IPFLAG_DONT_FRAGMENT = 0x02
 
-// WinMTR fills request data with ASCII spaces (0x20)
-const REQUEST_SIZE = 32
+// Default request payload size (WinMTR uses 32 bytes of ASCII spaces 0x20)
+const DEFAULT_REQUEST_SIZE = 32
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -117,15 +117,16 @@ function icmpSendEchoAsync(
   destAddr: number,
   ipOptions: Buffer,
   replyBuffer: Buffer,
-  timeoutMs: number
+  timeoutMs: number,
+  packetSize: number
 ): Promise<number> {
-  const requestData = Buffer.alloc(REQUEST_SIZE, 0x20) // spaces, like WinMTR
+  const requestData = Buffer.alloc(packetSize, 0x20) // spaces, like WinMTR
   return new Promise<number>((resolve, reject) => {
     api.sendEcho.async(
       api.handle,
       destAddr,
       requestData,
-      REQUEST_SIZE,
+      packetSize,
       ipOptions,
       replyBuffer,
       replyBuffer.length,
@@ -258,7 +259,8 @@ export class NativeEngine implements IProberEngine {
     // IcmpSendEcho blocks until a reply arrives or timeout expires.
     // koffi runs it in its own thread pool so the event loop stays free —
     // all TTL probes can be in-flight simultaneously (WinMTR thread-per-TTL).
-    const count = await icmpSendEchoAsync(this.icmp, destAddr, ipOptions, replyBuf, opts.timeoutMs)
+    const reqSize = opts.packetSize > 0 ? opts.packetSize : DEFAULT_REQUEST_SIZE
+    const count = await icmpSendEchoAsync(this.icmp, destAddr, ipOptions, replyBuf, opts.timeoutMs, reqSize)
 
     if (count === 0) {
       // dwReplyCount == 0 → IcmpSendEcho returned no reply (timeout/error)

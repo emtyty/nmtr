@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useTraceStore } from '../../store/useTraceStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useRecordingStore } from '../../store/useRecordingStore'
-import type { TraceConfig, Protocol } from '@shared/types'
+import type { TraceConfig } from '@shared/types'
 
 interface TraceControlsProps {
   sessionId: string | null
@@ -14,10 +14,7 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
   const { isRecording, recordingSessionId, setRecording, clearRecording } = useRecordingStore()
 
   const [target, setTarget] = useState('')
-  const [protocol, setProtocol] = useState<Protocol>('icmp')
-  const [port, setPort] = useState(80)
   const [intervalMs, setIntervalMs] = useState(500)
-  const [useIPv6, setUseIPv6] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const session = sessionId ? sessions[sessionId] : null
@@ -30,12 +27,11 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
     try {
       const config: TraceConfig = {
         target: target.trim(),
-        protocol,
-        port: protocol !== 'icmp' ? port : undefined,
+        protocol: 'icmp',
         intervalMs,
         packetSize: settings.defaultPacketSize ?? 64,
         maxHops: settings.maxHops ?? 30,
-        useIPv6,
+        useIPv6: false,
         resolveHostnames: settings.resolveHostnames ?? true
       }
       const result = await window.nmtrAPI.traceStart({ config })
@@ -59,7 +55,7 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
   }
 
   // Wrap in useCallback so the useEffect dependency array stays stable
-  const stableHandleStart = useCallback(handleStart, [target, protocol, port, intervalMs, useIPv6, settings])
+  const stableHandleStart = useCallback(handleStart, [target, intervalMs, settings])
   const stableHandleStop = useCallback(handleStop, [sessionId])
 
   // Ctrl+Enter: start or stop — lives here because `target` is local state
@@ -101,31 +97,10 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
         disabled={isRunning || loading}
       />
 
-      {/* Protocol picker */}
-      <select
-        className="bg-canvas-default border border-border-default rounded px-2 py-1.5 text-base text-fg-default outline-none cursor-pointer"
-        value={protocol}
-        onChange={(e) => setProtocol(e.target.value as Protocol)}
-        disabled={isRunning || loading}
-      >
-        <option value="icmp">ICMP</option>
-        <option value="udp" disabled>UDP (soon)</option>
-        <option value="tcp" disabled>TCP (soon)</option>
-      </select>
-
-      {/* Port (UDP/TCP only) */}
-      {protocol !== 'icmp' && (
-        <input
-          type="number"
-          className="bg-canvas-default border border-border-default rounded px-2 py-1.5 text-base text-fg-default outline-none w-20"
-          value={port}
-          onChange={(e) => setPort(Number(e.target.value))}
-          placeholder="Port"
-          disabled={isRunning || loading}
-          min={1}
-          max={65535}
-        />
-      )}
+      {/* Protocol indicator (only ICMP supported currently) */}
+      <span className="bg-canvas-default border border-border-default rounded px-2 py-1.5 text-base text-fg-muted select-none">
+        ICMP
+      </span>
 
       <div className="w-px h-5 bg-border-default" />
 
@@ -144,19 +119,6 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
           <option value={5000}>5s</option>
         </select>
       </div>
-
-      {/* IPv4 / IPv6 */}
-      <button
-        className={`text-base px-2 py-1.5 rounded border transition-colors ${
-          useIPv6
-            ? 'border-accent-blue text-accent-blue'
-            : 'border-border-default text-fg-muted hover:border-accent-blue hover:text-accent-blue'
-        }`}
-        onClick={() => setUseIPv6((v) => !v)}
-        disabled={isRunning || loading}
-      >
-        {useIPv6 ? 'IPv6' : 'IPv4'}
-      </button>
 
       <div className="w-px h-5 bg-border-default" />
 

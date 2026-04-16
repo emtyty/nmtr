@@ -54,22 +54,6 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
               </select>
             </div>
 
-            {/* Default Protocol */}
-            <div>
-              <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
-                Default Protocol
-              </label>
-              <select
-                className="w-full bg-canvas-default border border-border-default rounded px-3 py-1.5 text-base text-fg-default outline-none focus:border-accent-blue"
-                value={draft.defaultProtocol}
-                onChange={(e) => setProp('defaultProtocol', e.target.value as Protocol)}
-              >
-                <option value="icmp">ICMP</option>
-                <option value="udp">UDP</option>
-                <option value="tcp">TCP</option>
-              </select>
-            </div>
-
             {/* Default Interval */}
             <div>
               <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
