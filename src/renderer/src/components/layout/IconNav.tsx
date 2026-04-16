@@ -1,7 +1,7 @@
 import React from 'react'
 import { useUIStore } from '../../store/useUIStore'
 
-export type NavView = 'traces' | 'history'
+export type NavView = 'traces' | 'history' | 'lan'
 
 interface IconNavProps {
   activeView: NavView
@@ -29,6 +29,15 @@ const HistoryIcon = (
   </svg>
 )
 
+const LanIcon = (
+  <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <rect x="7" y="2" width="6" height="4" rx="1" />
+    <rect x="1" y="14" width="6" height="4" rx="1" />
+    <rect x="13" y="14" width="6" height="4" rx="1" />
+    <path d="M10 6v3M10 9H4M10 9h6M4 9v5M16 9v5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 const SettingsIcon = (
   <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
     <circle cx="10" cy="10" r="2.5" />
@@ -42,6 +51,7 @@ export function IconNav({ activeView, onNavigate }: IconNavProps): React.JSX.Ele
   const items: NavItemDef[] = [
     { kind: 'view', id: 'traces', label: 'Traces', icon: TracesIcon },
     { kind: 'view', id: 'history', label: 'History', icon: HistoryIcon },
+    { kind: 'view', id: 'lan', label: 'LAN', icon: LanIcon },
     { kind: 'action', label: 'Settings', icon: SettingsIcon, onAction: openSettings }
   ]
 

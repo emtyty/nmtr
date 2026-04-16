@@ -219,6 +219,43 @@ export interface HistoryEntry {
   engineMode: string
 }
 
+// ─── LAN Network ─────────────────────────────────────────────────────────────
+
+export type DeviceType = 'router' | 'ap' | 'laptop' | 'desktop' | 'phone' | 'tablet'
+  | 'camera' | 'iot' | 'printer' | 'media' | 'server' | 'unknown'
+
+export interface NetworkInterface {
+  name: string          // e.g. "Ethernet", "Wi-Fi"
+  ip: string            // local IP
+  mac: string           // MAC address
+  netmask: string       // e.g. "255.255.255.0"
+  gateway: string | null
+  type: 'ethernet' | 'wifi' | 'vpn' | 'warp' | 'loopback' | 'other'
+  cidr: string          // e.g. "192.168.1.0/24"
+}
+
+export interface LanDevice {
+  ip: string
+  mac: string | null
+  hostname: string | null
+  vendor: string | null       // OUI vendor from MAC
+  deviceType: DeviceType
+  isRandomizedMac: boolean    // true if MAC is locally administered (randomized)
+  responseTimeMs: number | null
+  isGateway: boolean
+  isSelf: boolean
+}
+
+export interface LanScanResult {
+  interfaces: NetworkInterface[]
+  devices: LanDevice[]
+  vpnDetected: boolean
+  vpnInterfaces: NetworkInterface[]  // subset of interfaces with type vpn/warp
+  scanDurationMs: number
+}
+
+export type LanScanPayload = Record<string, never>  // no params needed
+
 // ─── Tracert discovery result ─────────────────────────────────────────────────
 
 export interface TracertResultEvent {

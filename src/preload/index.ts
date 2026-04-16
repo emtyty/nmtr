@@ -18,6 +18,7 @@ import type {
   PlaybackStartPayload,
   PlaybackSeekPayload,
   PlaybackStopPayload,
+  LanScanResult,
   HopUpdateEvent,
   HopsBatchEvent,
   HopNewEvent,
@@ -72,6 +73,10 @@ const nmtrAPI = {
     ipcRenderer.invoke(IPC.PLAYBACK_SEEK, payload),
   playbackStop: (payload: PlaybackStopPayload): Promise<void> =>
     ipcRenderer.invoke(IPC.PLAYBACK_STOP, payload),
+
+  // ── LAN Network ────────────────────────────────────────────────────────────
+  lanScan: (): Promise<LanScanResult> =>
+    ipcRenderer.invoke(IPC.LAN_SCAN),
 
   // ── Window controls ────────────────────────────────────────────────────────
   windowMinimize: (): void => ipcRenderer.send(IPC.WINDOW_MINIMIZE),

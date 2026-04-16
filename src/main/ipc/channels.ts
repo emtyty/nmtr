@@ -39,6 +39,9 @@ export const IPC = {
   HISTORY_REMOVE: 'history:remove',
   HISTORY_ENTRY_ADDED: 'history:entryAdded', // main → renderer push
 
+  // LAN Network (renderer → main invoke)
+  LAN_SCAN: 'lan:scan',
+
   // Auto-update (renderer → main invoke)
   UPDATE_CHECK: 'update:check',
   UPDATE_DOWNLOAD: 'update:download',

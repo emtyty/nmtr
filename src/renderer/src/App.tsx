@@ -6,6 +6,7 @@ import type { NavView } from './components/layout/IconNav'
 import { TraceView } from './components/trace/TraceView'
 import { TracertResultModal } from './components/trace/TracertResultModal'
 import { HistoryView } from './components/views/HistoryView'
+import { LanNetworkView } from './components/lan/LanNetworkView'
 import { useTraceSession } from './hooks/useTraceSession'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useSettingsStore } from './store/useSettingsStore'
@@ -34,6 +35,8 @@ export default function App(): React.JSX.Element {
             <Sidebar />
             <TraceView />
           </>
+        ) : activeView === 'lan' ? (
+          <LanNetworkView />
         ) : (
           <HistoryView />
         )}

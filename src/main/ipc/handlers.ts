@@ -8,6 +8,7 @@ import { HistoryStore } from '../store/HistoryStore'
 import { formatExport } from '../export/ExportFormatter'
 import { SessionPlayer } from '../recording/SessionPlayer'
 import { checkForUpdates, downloadUpdate, quitAndInstall } from '../updater/AutoUpdater'
+import { scanLan } from '../lan/LanScanner'
 import type { TrayManager } from '../tray/TrayManager'
 import type {
   TraceStartPayload,
@@ -202,6 +203,11 @@ export function registerHandlers(win: BrowserWindow): void {
 
   ipcMain.handle(IPC.HISTORY_REMOVE, (_e, id: string) => {
     HistoryStore.remove(id)
+  })
+
+  // ── LAN Network ────────────────────────────────────────────────────────
+  ipcMain.handle(IPC.LAN_SCAN, async () => {
+    return await scanLan()
   })
 
   // ── Auto-update ────────────────────────────────────────────────────────────
