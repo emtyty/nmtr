@@ -31,7 +31,7 @@ const PRIVATE_RESULT: EnrichmentData = {
 // LRU cache — IPs rarely change org
 const cache = new LRUCache<string, EnrichmentData>({ max: 10000 })
 
-// Rate-limit ip-api.com to 40 req/min (free tier allows 45)
+// Rate-limit geojs.io to 40 req/min (free tier, no hard cap documented)
 const queue = new PQueue({ concurrency: 5, intervalCap: 40, interval: 60_000 })
 
 function isPrivate(ip: string): boolean {
@@ -40,26 +40,30 @@ function isPrivate(ip: string): boolean {
 
 async function fetchIpApi(ip: string): Promise<EnrichmentData> {
   try {
-    const url = `http://ip-api.com/json/${ip}?fields=as,org,country,countryCode,city,lat,lon`
+    // Use HTTPS provider (geojs.io) to prevent cleartext IP leak / MITM
+    const url = `https://get.geojs.io/v1/ip/geo/${ip}.json`
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
     if (!res.ok) return PRIVATE_RESULT
     const data = (await res.json()) as {
-      as?: string
-      org?: string
+      asn?: number
+      organization_name?: string
+      organization?: string
       country?: string
-      countryCode?: string
+      country_code?: string
       city?: string
-      lat?: number
-      lon?: number
+      latitude?: string
+      longitude?: string
     }
+    const asnNum = data.asn
+    const asnStr = asnNum ? `AS${asnNum}` : null
     return {
-      asn: data.as?.split(' ')[0] ?? null, // "AS15169 Google LLC" → "AS15169"
-      isp: data.org ?? data.as?.slice(data.as.indexOf(' ') + 1) ?? null,
+      asn: asnStr,
+      isp: data.organization_name ?? data.organization ?? null,
       country: data.country ?? null,
-      countryCode: data.countryCode ?? null,
-      city: data.city ?? null,
-      lat: data.lat ?? null,
-      lng: data.lon ?? null
+      countryCode: data.country_code ?? null,
+      city: data.city || null,
+      lat: data.latitude ? parseFloat(data.latitude) : null,
+      lng: data.longitude ? parseFloat(data.longitude) : null
     }
   } catch {
     return PRIVATE_RESULT

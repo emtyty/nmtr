@@ -140,11 +140,21 @@ function icmpSendEchoAsync(
   })
 }
 
+// ─── Input validation ────────────────────────────────────────────────────────
+
+/** Validate that a target is a safe hostname or IP address (no shell metacharacters) */
+const VALID_IP_RE = /^\d{1,3}(?:\.\d{1,3}){3}$/
+const VALID_HOSTNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]{0,253}[a-zA-Z0-9])?$/
+
+function isValidTarget(target: string): boolean {
+  return VALID_IP_RE.test(target) || VALID_HOSTNAME_RE.test(target)
+}
+
 // ─── DNS resolution (cached per-target) ──────────────────────────────────────
 
 function resolveIPv4(host: string): Promise<string> {
   // Already an IPv4 address — skip DNS
-  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) return Promise.resolve(host)
+  if (VALID_IP_RE.test(host)) return Promise.resolve(host)
   return new Promise((resolve) => {
     dnsLookup(host, { family: 4 }, (err, address) => {
       resolve(err ? host : address)
@@ -190,6 +200,9 @@ export class NativeEngine implements IProberEngine {
     target: string,
     maxHops: number
   ): Promise<{ hops: Map<number, string>; rawOutput: string; error: string | null }> {
+    if (!isValidTarget(target)) {
+      return { hops: new Map(), rawOutput: '', error: `Invalid target: ${target}` }
+    }
     return new Promise((resolve) => {
       const hops = new Map<number, string>()
       let spawnError: string | null = null
@@ -244,6 +257,7 @@ export class NativeEngine implements IProberEngine {
   // ─── probe: IcmpSendEcho via koffi (WinMTR TraceThread logic) ────────────
 
   async probe(target: string, ttl: number, opts: ProbeOptions): Promise<ProbeResult> {
+    if (!isValidTarget(target)) throw new Error(`Invalid target: ${target}`)
     // Fall back to ping.exe if the ICMP API could not be loaded
     if (!this.icmp) return this.pingFallback(target, ttl, opts)
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, session } from 'electron'
 import { join } from 'path'
 import { registerHandlers, setTrayManager } from './ipc/handlers'
 import { ProberManager } from './prober/ProberManager'
@@ -26,7 +26,7 @@ function createWindow(): void {
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: false, // required by electron-vite's externalizeDepsPlugin (preload needs require)
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -74,6 +74,28 @@ ipcMain.on('window:close', () => {
 
 app.whenReady().then(async () => {
   await ProberManager.initialize()
+
+  // Set Content Security Policy (production only — Vite dev server needs inline scripts/WS)
+  const isDev = !!process.env['ELECTRON_RENDERER_URL']
+  if (!isDev) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self'; " +
+            "script-src 'self'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data: blob:; " +
+            "font-src 'self' data:; " +
+            "connect-src 'self' https://get.geojs.io https://api.macvendors.com https://api.github.com; " +
+            "object-src 'none'; " +
+            "base-uri 'self'"
+          ]
+        }
+      })
+    })
+  }
 
   // Create window first so mainWindow is non-null when handlers are registered
   createWindow()

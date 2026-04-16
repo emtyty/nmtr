@@ -5,7 +5,7 @@
  * default gateway, and performs an ARP-table scan + ping sweep to find
  * nearby devices on the same subnet.
  */
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 import { networkInterfaces, hostname as osHostname } from 'os'
 import dns from 'dns'
 import https from 'https'
@@ -13,11 +13,33 @@ import type { NetworkInterface, LanDevice, LanScanResult, DeviceType } from '../
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Validate that a string is a safe IPv4 address (digits and dots only) */
+const VALID_IP_RE = /^\d{1,3}(?:\.\d{1,3}){3}$/
+function isValidIp(ip: string): boolean {
+  return VALID_IP_RE.test(ip)
+}
+
 function run(cmd: string, timeoutMs = 15_000): Promise<string> {
   return new Promise((resolve, reject) => {
     exec(cmd, { timeout: timeoutMs, windowsHide: true }, (err, stdout, stderr) => {
       if (err && !stdout) return reject(err)
       resolve((stdout || '') + (stderr || ''))
+    })
+  })
+}
+
+/** Safe spawn wrapper — passes arguments as an array, never through a shell */
+function runSpawn(command: string, args: string[], timeoutMs = 15_000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { windowsHide: true, timeout: timeoutMs })
+    let stdout = ''
+    let stderr = ''
+    child.stdout?.on('data', (d: Buffer) => { stdout += d.toString() })
+    child.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code !== 0 && !stdout) reject(new Error(`${command} exited with code ${code}`))
+      else resolve(stdout + stderr)
     })
   })
 }
@@ -43,8 +65,9 @@ function cidrFromMask(ip: string, netmask: string): string {
 
 /** Query a specific DNS server for reverse lookup via nslookup */
 async function nslookupVia(ip: string, dnsServer: string): Promise<string | null> {
+  if (!isValidIp(ip) || !isValidIp(dnsServer)) return null
   try {
-    const out = await run(`nslookup ${ip} ${dnsServer}`, 4000)
+    const out = await runSpawn('nslookup', [ip, dnsServer], 4000)
     // Output: "Name:    DEVICE-NAME\nAddress:  192.168.0.x"
     // or:     "Name:    device.local\nAddress:  192.168.0.x"
     const match = out.match(/Name:\s+(\S+)/)
@@ -71,8 +94,9 @@ function reverseDns(ip: string): Promise<string | null> {
 /** NetBIOS name lookup (Windows only — last resort, slower) */
 async function netbiosLookup(ip: string): Promise<string | null> {
   if (process.platform !== 'win32') return null
+  if (!isValidIp(ip)) return null
   try {
-    const out = await run(`nbtstat -A ${ip}`, 5000)
+    const out = await runSpawn('nbtstat', ['-A', ip], 5000)
     // Match: "  DESKTOP-XYZ   <00>  UNIQUE  ..."
     const match = out.match(/^\s+(\S+)\s+<00>\s+UNIQUE/m)
     return match?.[1] ?? null
@@ -394,10 +418,10 @@ async function pingSweep(cidr: string): Promise<void> {
     const promises: Promise<void>[] = []
     for (let i = start; i <= end; i++) {
       const ip = `${base}.${i}`
-      const cmd = isWin
-        ? `ping -n 1 -w 200 ${ip}`
-        : `ping -c 1 -W 1 ${ip}`
-      promises.push(run(cmd, 3000).then(() => {}).catch(() => {}))
+      const args = isWin
+        ? ['-n', '1', '-w', '200', ip]
+        : ['-c', '1', '-W', '1', ip]
+      promises.push(runSpawn('ping', args, 3000).then(() => {}).catch(() => {}))
     }
     await Promise.all(promises)
   }

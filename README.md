@@ -71,7 +71,7 @@ src/
 ├── main/                # Electron main process
 │   ├── ipc/             # IPC channel constants + request handlers
 │   ├── prober/          # ProberSession, StatsAggregator, NativeEngine (ICMP FFI), PingusEngine
-│   ├── enrichment/      # GeoIP (ip-api.com, LRU-cached) + WHOIS fetcher
+│   ├── enrichment/      # GeoIP (geojs.io over HTTPS, LRU-cached) + WHOIS fetcher
 │   ├── recording/       # Session recorder + player (.nmtr NDJSON format)
 │   ├── export/          # Text / CSV / HTML formatters
 │   ├── store/           # electron-store wrappers (AppSettings, HistoryStore)
@@ -99,7 +99,7 @@ src/
 1. **Session start** — `tracert` is spawned to discover the initial hop list and capture raw output for the 📡 TracertResultModal; hops discovered here seed the initial TTL set for the prober
 2. **Parallel probing** — for each TTL 1…maxHops, a dedicated loop runs in parallel; each probe calls `IcmpSendEcho` on a thread-pool thread via `koffi` async with the TTL set in `IP_OPTION_INFORMATION`
 3. **Reply parsing** — `IP_TTL_EXPIRED_TRANSIT` (11013) identifies intermediate hops; `IP_SUCCESS` (0) identifies the destination; RTT is read directly from `ICMP_ECHO_REPLY` (kernel-measured)
-4. **Enrichment** — each new hop IP is queued for ASN/ISP/geo lookup via ip-api.com (rate-limited, LRU-cached); DNS reverse lookup runs concurrently
+4. **Enrichment** — each new hop IP is queued for ASN/ISP/geo lookup via geojs.io over HTTPS (rate-limited, LRU-cached); DNS reverse lookup runs concurrently
 5. **Route change detection** — each round compares the replying IP to the stored IP; a change emits `hop:routeChanged`, re-triggers enrichment, and logs the event
 6. **IPC batching** — all hop stats are sent in a single `hops:batch` event per probe round; the renderer applies a 300 ms throttle inside `startTransition` to stay responsive
 7. **History** — when a trace stops, a summary entry is saved to `nmtr-history.json` via electron-store and pushed to the renderer immediately via `history:entryAdded`
@@ -108,19 +108,28 @@ src/
 
 | Layer | Tech |
 |-------|------|
-| Shell | Electron 35 |
+| Shell | Electron 41 |
 | Renderer | React 18 · TypeScript · Tailwind CSS v3 |
 | Bundler | electron-vite + Vite 6 |
 | State | Zustand |
 | UI primitives | Radix UI |
 | ICMP engine | koffi FFI → `Iphlpapi.dll` `IcmpSendEcho` |
-| Geo enrichment | ip-api.com (LRU-cached) |
+| Geo enrichment | geojs.io over HTTPS (LRU-cached) |
 | Charts | recharts (RTT heartbeat + latency detail) |
 | World map | react-simple-maps + world-atlas (offline TopoJSON) |
 | Path graph | @xyflow/react |
 | Persistence | electron-store |
 | Auto-update | electron-updater |
 | Packaging | electron-builder (NSIS installer + portable) |
+
+## Security
+
+- **Electron ≥ 41.2.1** — bundled with all 17 known CVEs from 35.x patched
+- **Content Security Policy** — enforced in production builds (renderer restricted to `self` scripts, allow-listed fetch hosts: geojs.io, api.macvendors.com, api.github.com)
+- **Context isolation** — renderer has no direct Node access; all IPC goes through `contextBridge` in the preload script
+- **HTTPS-only geo enrichment** — GeoIP lookups use `https://get.geojs.io` to prevent cleartext IP leaks / MITM
+- **Input validation** — traceroute targets validated against hostname/IPv4 regex before `spawn('tracert', ...)`
+- **Safe subprocess spawning** — all LAN scanner subprocesses (`ping`, `nslookup`, `nbtstat`) use `spawn()` with argv arrays (no shell interpolation) plus IP format validation
 
 ## License
 
