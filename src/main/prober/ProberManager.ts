@@ -38,6 +38,14 @@ export const ProberManager = {
     sessions.delete(sessionId)
   },
 
+  pauseSession(sessionId: string): void {
+    sessions.get(sessionId)?.pause()
+  },
+
+  resumeSession(sessionId: string): void {
+    sessions.get(sessionId)?.resume()
+  },
+
   resetSession(sessionId: string): void {
     sessions.get(sessionId)?.reset()
   },

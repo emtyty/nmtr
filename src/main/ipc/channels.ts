@@ -5,6 +5,8 @@
 export const IPC = {
   // Renderer → Main (invoke/handle)
   TRACE_START: 'trace:start',
+  TRACE_PAUSE: 'trace:pause',
+  TRACE_RESUME: 'trace:resume',
   TRACE_STOP: 'trace:stop',
   TRACE_RESET: 'trace:reset',
   TRACE_EXPORT: 'trace:export',

@@ -29,6 +29,8 @@ export class ProberSession extends EventEmitter {
   private status: SessionStatus = 'idle'
   private timer: NodeJS.Timeout | null = null
   private startedAt = 0
+  private activeElapsedMs = 0
+  private lastResumedAt = 0
   private elapsedInterval: NodeJS.Timeout | null = null
   private window: BrowserWindow
   private recorder: SessionRecorder | null = null
@@ -56,6 +58,10 @@ export class ProberSession extends EventEmitter {
 
   async start(): Promise<{ engineMode: 'pingus' | 'native' }> {
     if (this.status === 'running') return { engineMode: this.engineMode }
+    if (this.status === 'paused') {
+      this.resume()
+      return { engineMode: this.engineMode }
+    }
 
     // 1. Route discovery — always runs via NativeEngine tracert
     console.log(`[ProberSession] ${this.id} starting tracert discovery — target=${this.config.target} maxHops=${this.config.maxHops}`)
@@ -101,13 +107,37 @@ export class ProberSession extends EventEmitter {
 
     this.status = 'running'
     this.startedAt = Date.now()
+    this.activeElapsedMs = 0
+    this.lastResumedAt = Date.now()
     console.log(`[ProberSession] ${this.id} started — engine=${this.engineMode} target=${this.config.target} interval=${this.config.intervalMs}ms`)
     this.scheduleLoop()
     this.scheduleElapsedUpdates()
     return { engineMode: this.engineMode }
   }
 
+  pause(): void {
+    if (this.status !== 'running') return
+    this.activeElapsedMs += Date.now() - this.lastResumedAt
+    this.clearTimers()
+    this.status = 'paused'
+    console.log(`[ProberSession] ${this.id} paused`)
+    this.emitStatus()
+  }
+
+  resume(): void {
+    if (this.status !== 'paused') return
+    this.lastResumedAt = Date.now()
+    this.status = 'running'
+    console.log(`[ProberSession] ${this.id} resumed`)
+    this.scheduleLoop()
+    this.scheduleElapsedUpdates()
+    this.emitStatus()
+  }
+
   stop(): void {
+    if (this.status === 'running') {
+      this.activeElapsedMs += Date.now() - this.lastResumedAt
+    }
     this.clearTimers()
     this.generation++ // Invalidate all in-flight DNS/GeoIP callbacks
     this.status = 'stopped'
@@ -127,6 +157,10 @@ export class ProberSession extends EventEmitter {
     this.routeChangeLog = []
     this.finalHopTTL = null
     this.startedAt = Date.now()
+    this.activeElapsedMs = 0
+    if (this.status === 'running') {
+      this.lastResumedAt = Date.now()
+    }
     if (this.isWindowAlive()) this.window.webContents.send(IPC.SESSION_RESET, { sessionId: this.id })
     // Send zeroed snapshots in one batch
     if (this.isWindowAlive()) this.window.webContents.send(IPC.HOPS_BATCH, {
@@ -215,7 +249,7 @@ export class ProberSession extends EventEmitter {
 
     // Write recording frame
     if (this.recorder) {
-      this.recorder.writeFrame(allSnapshots, Date.now() - this.startedAt)
+      this.recorder.writeFrame(allSnapshots, this.getElapsedMs())
     }
   }
 
@@ -259,7 +293,7 @@ export class ProberSession extends EventEmitter {
         this.routeChangeLog.push(event)
         if (this.isWindowAlive()) this.window.webContents.send(IPC.HOP_ROUTE_CHANGED, event)
 
-        if (this.recorder) this.recorder.writeRouteChange(event, Date.now() - this.startedAt)
+        if (this.recorder) this.recorder.writeRouteChange(event, this.getElapsedMs())
 
         this.triggerEnrichment(ttl, result.fromIP)
         if (this.config.resolveHostnames) {
@@ -361,9 +395,16 @@ export class ProberSession extends EventEmitter {
     this.window.webContents.send(IPC.SESSION_STATUS, {
       sessionId: this.id,
       status: this.status,
-      elapsedMs: this.status === 'running' ? Date.now() - this.startedAt : 0,
+      elapsedMs: this.getElapsedMs(),
       totalSent
     })
+  }
+
+  private getElapsedMs(): number {
+    if (this.status === 'running') {
+      return this.activeElapsedMs + (Date.now() - this.lastResumedAt)
+    }
+    return this.activeElapsedMs
   }
 
   getAllSnapshots(): HopStats[] {

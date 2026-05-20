@@ -19,6 +19,7 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
 
   const session = sessionId ? sessions[sessionId] : null
   const isRunning = session?.status === 'running'
+  const isPaused = session?.status === 'paused'
   const isThisSessionRecording = isRecording && recordingSessionId === sessionId
 
   async function handleStart(): Promise<void> {
@@ -49,6 +50,16 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
     window.nmtrAPI.traceStop({ sessionId })
   }
 
+  function handlePause(): void {
+    if (!sessionId) return
+    window.nmtrAPI.tracePause({ sessionId })
+  }
+
+  function handleResume(): void {
+    if (!sessionId) return
+    window.nmtrAPI.traceResume({ sessionId })
+  }
+
   function handleReset(): void {
     if (!sessionId) return
     window.nmtrAPI.traceReset({ sessionId })
@@ -57,6 +68,7 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
   // Wrap in useCallback so the useEffect dependency array stays stable
   const stableHandleStart = useCallback(handleStart, [target, intervalMs, settings])
   const stableHandleStop = useCallback(handleStop, [sessionId])
+  const stableHandleResume = useCallback(handleResume, [sessionId])
 
   // Ctrl+Enter: start or stop — lives here because `target` is local state
   useEffect(() => {
@@ -65,13 +77,15 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
       e.preventDefault()
       if (isRunning) {
         stableHandleStop()
+      } else if (isPaused) {
+        stableHandleResume()
       } else if (!loading) {
         stableHandleStart()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isRunning, loading, stableHandleStart, stableHandleStop])
+  }, [isRunning, isPaused, loading, stableHandleStart, stableHandleStop, stableHandleResume])
 
   async function handleRecordToggle(): Promise<void> {
     if (!sessionId) return
@@ -93,8 +107,8 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
         placeholder="hostname or IP address…"
         value={target}
         onChange={(e) => setTarget(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && !isRunning && !loading && handleStart()}
-        disabled={isRunning || loading}
+        onKeyDown={(e) => e.key === 'Enter' && !isRunning && !isPaused && !loading && handleStart()}
+        disabled={isRunning || isPaused || loading}
       />
 
       {/* Protocol indicator (only ICMP supported currently) */}
@@ -111,7 +125,7 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
           className="bg-canvas-default border border-border-default rounded px-2 py-1.5 text-base text-fg-default outline-none cursor-pointer"
           value={intervalMs}
           onChange={(e) => setIntervalMs(Number(e.target.value))}
-          disabled={isRunning || loading}
+          disabled={isRunning || isPaused || loading}
         >
           <option value={500}>500ms</option>
           <option value={1000}>1s</option>
@@ -131,7 +145,41 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
           </svg>
           Preparing…
         </div>
-      ) : !isRunning ? (
+      ) : isRunning ? (
+        <>
+          <button
+            className="bg-[#d29922] hover:bg-[#e3b341] text-white text-base font-semibold px-4 py-1.5 rounded transition-colors"
+            onClick={handlePause}
+            title="Pause trace"
+          >
+            Ⅱ Pause
+          </button>
+          <button
+            className="bg-[#da3633] hover:bg-[#f85149] text-white text-base font-semibold px-4 py-1.5 rounded transition-colors"
+            onClick={handleStop}
+            title="Stop trace (Ctrl+Enter)"
+          >
+            ■ Stop
+          </button>
+        </>
+      ) : isPaused ? (
+        <>
+          <button
+            className="bg-accent-blue hover:opacity-90 text-white text-base font-semibold px-4 py-1.5 rounded transition-colors"
+            onClick={handleResume}
+            title="Resume trace (Ctrl+Enter)"
+          >
+            ▶ Resume
+          </button>
+          <button
+            className="bg-[#da3633] hover:bg-[#f85149] text-white text-base font-semibold px-4 py-1.5 rounded transition-colors"
+            onClick={handleStop}
+            title="Stop trace"
+          >
+            ■ Stop
+          </button>
+        </>
+      ) : (
         <button
           className="bg-[#238636] hover:bg-[#2ea043] text-white text-base font-semibold px-4 py-1.5 rounded transition-colors disabled:opacity-50"
           onClick={handleStart}
@@ -139,14 +187,6 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
           title="Start trace (Ctrl+Enter)"
         >
           ▶ Start
-        </button>
-      ) : (
-        <button
-          className="bg-[#da3633] hover:bg-[#f85149] text-white text-base font-semibold px-4 py-1.5 rounded transition-colors"
-          onClick={handleStop}
-          title="Stop trace (Ctrl+Enter)"
-        >
-          ■ Stop
         </button>
       )}
 
@@ -185,6 +225,12 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
         <div className="flex items-center gap-1.5 ml-auto text-base text-accent-green">
           <span className="w-1.5 h-1.5 rounded-full bg-accent-green pulse-dot" />
           Running · {session?.totalSent ?? 0} probes
+        </div>
+      )}
+      {isPaused && !loading && (
+        <div className="flex items-center gap-1.5 ml-auto text-base text-accent-yellow">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent-yellow" />
+          Paused · {session?.totalSent ?? 0} probes
         </div>
       )}
     </div>

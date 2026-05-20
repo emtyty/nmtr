@@ -1,6 +1,9 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useHistoryStore } from '../../store/useHistoryStore'
+import { useTraceStore } from '../../store/useTraceStore'
+import { useSettingsStore } from '../../store/useSettingsStore'
 import type { HistoryEntry } from '@shared/types'
+import type { TraceConfig } from '@shared/types'
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
@@ -32,10 +35,62 @@ function LossBar({ loss }: { loss: number }): React.JSX.Element {
 
 export function HistoryView(): React.JSX.Element {
   const { entries, load, remove, clear } = useHistoryStore()
+  const { addSession, setActive } = useTraceStore()
+  const { settings } = useSettingsStore()
+  const [query, setQuery] = useState('')
+  const [protocolFilter, setProtocolFilter] = useState<'all' | 'icmp' | 'udp' | 'tcp'>('all')
+  const [sortBy, setSortBy] = useState<'date' | 'target' | 'duration' | 'loss' | 'rtt' | 'hops'>('date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [rerunningId, setRerunningId] = useState<string | null>(null)
 
   // Always reload from main process when view mounts so we pick up
   // entries saved while the user was on the Traces view
   useEffect(() => { load() }, [])
+
+  const filteredEntries = useMemo(() => {
+    const q = query.trim().toLowerCase()
+
+    const filtered = entries.filter((entry) => {
+      if (protocolFilter !== 'all' && entry.protocol !== protocolFilter) return false
+      if (!q) return true
+      return entry.target.toLowerCase().includes(q)
+    })
+
+    const sorted = [...filtered].sort((a, b) => {
+      let cmp = 0
+      if (sortBy === 'date') cmp = a.startedAt - b.startedAt
+      else if (sortBy === 'target') cmp = a.target.localeCompare(b.target)
+      else if (sortBy === 'duration') cmp = a.durationMs - b.durationMs
+      else if (sortBy === 'loss') cmp = a.avgLoss - b.avgLoss
+      else if (sortBy === 'rtt') cmp = (a.avgRtt ?? Number.MAX_SAFE_INTEGER) - (b.avgRtt ?? Number.MAX_SAFE_INTEGER)
+      else if (sortBy === 'hops') cmp = a.hopCount - b.hopCount
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+
+    return sorted
+  }, [entries, protocolFilter, query, sortBy, sortDir])
+
+  async function rerunEntry(entry: HistoryEntry): Promise<void> {
+    setRerunningId(entry.id)
+    try {
+      const config: TraceConfig = {
+        target: entry.target,
+        protocol: entry.protocol,
+        intervalMs: settings.defaultIntervalMs,
+        packetSize: settings.defaultPacketSize,
+        maxHops: settings.maxHops,
+        useIPv6: false,
+        resolveHostnames: settings.resolveHostnames
+      }
+      const result = await window.nmtrAPI.traceStart({ config })
+      addSession(result.sessionId, config, result.engineMode as 'pingus' | 'native')
+      setActive(result.sessionId)
+    } catch (err) {
+      console.error('Failed to rerun trace from history:', err)
+    } finally {
+      setRerunningId(null)
+    }
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -55,6 +110,48 @@ export function HistoryView(): React.JSX.Element {
           </button>
         )}
       </div>
+
+      {entries.length > 0 && (
+        <div className="px-5 py-2 border-b border-border-default bg-canvas-default flex items-center gap-2 flex-wrap">
+          <input
+            className="bg-canvas-default border border-border-default rounded px-2.5 py-1.5 text-sm text-fg-default outline-none focus:border-accent-blue w-64"
+            placeholder="Search target..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <select
+            className="bg-canvas-default border border-border-default rounded px-2.5 py-1.5 text-sm text-fg-default outline-none"
+            value={protocolFilter}
+            onChange={(e) => setProtocolFilter(e.target.value as 'all' | 'icmp' | 'udp' | 'tcp')}
+          >
+            <option value="all">All Protocols</option>
+            <option value="icmp">ICMP</option>
+            <option value="udp">UDP</option>
+            <option value="tcp">TCP</option>
+          </select>
+          <select
+            className="bg-canvas-default border border-border-default rounded px-2.5 py-1.5 text-sm text-fg-default outline-none"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'date' | 'target' | 'duration' | 'loss' | 'rtt' | 'hops')}
+          >
+            <option value="date">Sort: Date</option>
+            <option value="target">Sort: Target</option>
+            <option value="duration">Sort: Duration</option>
+            <option value="loss">Sort: Loss</option>
+            <option value="rtt">Sort: RTT</option>
+            <option value="hops">Sort: Hops</option>
+          </select>
+          <button
+            className="text-sm px-2.5 py-1.5 rounded border border-border-default text-fg-muted hover:text-fg-default transition-colors"
+            onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+          >
+            {sortDir === 'asc' ? 'Asc' : 'Desc'}
+          </button>
+          <span className="ml-auto text-xs text-fg-muted">
+            Showing {filteredEntries.length} of {entries.length}
+          </span>
+        </div>
+      )}
 
       {entries.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 text-fg-muted">
@@ -81,7 +178,7 @@ export function HistoryView(): React.JSX.Element {
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry: HistoryEntry) => (
+              {filteredEntries.map((entry: HistoryEntry) => (
                 <tr
                   key={entry.id}
                   className="border-b border-border-muted hover:bg-canvas-hover transition-colors group"
@@ -109,6 +206,14 @@ export function HistoryView(): React.JSX.Element {
                   </td>
                   <td className="px-3 py-2.5 text-fg-subtle">{entry.engineMode}</td>
                   <td className="px-3 py-2.5">
+                    <button
+                      className="text-xs px-2 py-0.5 rounded border border-border-default text-fg-muted hover:text-fg-default hover:border-fg-muted transition-colors mr-2"
+                      onClick={() => rerunEntry(entry)}
+                      disabled={rerunningId === entry.id}
+                      title="Start a new trace using this entry's target"
+                    >
+                      {rerunningId === entry.id ? 'Starting...' : 'Rerun'}
+                    </button>
                     <button
                       className="opacity-0 group-hover:opacity-100 text-fg-subtle hover:text-accent-red transition-colors leading-none"
                       onClick={() => remove(entry.id)}

@@ -12,6 +12,8 @@ import { scanLan } from '../lan/LanScanner'
 import type { TrayManager } from '../tray/TrayManager'
 import type {
   TraceStartPayload,
+  TracePausePayload,
+  TraceResumePayload,
   TraceStopPayload,
   TraceResetPayload,
   ExportPayload,
@@ -51,6 +53,16 @@ export function registerHandlers(win: BrowserWindow): void {
       console.error('[IPC] trace:start FAILED — target=%s error:', payload?.config?.target, err)
       throw err
     }
+  })
+
+  ipcMain.handle(IPC.TRACE_PAUSE, async (_e, payload: TracePausePayload) => {
+    ProberManager.pauseSession(payload.sessionId)
+    _tray?.updateMenu(ProberManager.getActiveSessions())
+  })
+
+  ipcMain.handle(IPC.TRACE_RESUME, async (_e, payload: TraceResumePayload) => {
+    ProberManager.resumeSession(payload.sessionId)
+    _tray?.updateMenu(ProberManager.getActiveSessions())
   })
 
   ipcMain.handle(IPC.TRACE_STOP, async (_e, payload: TraceStopPayload) => {

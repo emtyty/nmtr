@@ -153,6 +153,12 @@ export interface TraceStartResult {
 export interface TraceStopPayload {
   sessionId: string
 }
+export interface TracePausePayload {
+  sessionId: string
+}
+export interface TraceResumePayload {
+  sessionId: string
+}
 export interface TraceResetPayload {
   sessionId: string
 }

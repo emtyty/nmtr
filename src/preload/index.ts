@@ -3,6 +3,8 @@ import { IPC } from '../main/ipc/channels'
 import type {
   TraceStartPayload,
   TraceStartResult,
+  TracePausePayload,
+  TraceResumePayload,
   TraceStopPayload,
   TraceResetPayload,
   ExportPayload,
@@ -42,6 +44,10 @@ const nmtrAPI = {
   // ── Trace control ──────────────────────────────────────────────────────────
   traceStart: (payload: TraceStartPayload): Promise<TraceStartResult> =>
     ipcRenderer.invoke(IPC.TRACE_START, payload),
+  tracePause: (payload: TracePausePayload): Promise<void> =>
+    ipcRenderer.invoke(IPC.TRACE_PAUSE, payload),
+  traceResume: (payload: TraceResumePayload): Promise<void> =>
+    ipcRenderer.invoke(IPC.TRACE_RESUME, payload),
   traceStop: (payload: TraceStopPayload): Promise<void> =>
     ipcRenderer.invoke(IPC.TRACE_STOP, payload),
   traceReset: (payload: TraceResetPayload): Promise<void> =>
