@@ -144,10 +144,23 @@ function icmpSendEchoAsync(
 
 /** Validate that a target is a safe hostname or IP address (no shell metacharacters) */
 const VALID_IP_RE = /^\d{1,3}(?:\.\d{1,3}){3}$/
+const VALID_IPV6_RE = /^(?:[A-Fa-f0-9]{1,4}(?::[A-Fa-f0-9]{0,4}){1,7}|::1|::)$/
 const VALID_HOSTNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]{0,253}[a-zA-Z0-9])?$/
 
+const IPV4_EXTRACT_RE = /(\d{1,3}(?:\.\d{1,3}){3})/
+const IPV6_EXTRACT_RE = /([A-Fa-f0-9]{0,4}:[A-Fa-f0-9:]+[A-Fa-f0-9])/
+
+function isLikelyIPv6(target: string): boolean {
+  return target.includes(':')
+}
+
 function isValidTarget(target: string): boolean {
-  return VALID_IP_RE.test(target) || VALID_HOSTNAME_RE.test(target)
+  return VALID_IP_RE.test(target) || VALID_HOSTNAME_RE.test(target) || VALID_IPV6_RE.test(target)
+}
+
+function extractIPFromText(text: string, useIPv6: boolean): string | null {
+  const match = useIPv6 ? text.match(IPV6_EXTRACT_RE) : text.match(IPV4_EXTRACT_RE)
+  return match?.[1] ?? null
 }
 
 // ─── DNS resolution (cached per-target) ──────────────────────────────────────
@@ -198,7 +211,8 @@ export class NativeEngine implements IProberEngine {
 
   async discoverHops(
     target: string,
-    maxHops: number
+    maxHops: number,
+    useIPv6 = false
   ): Promise<{ hops: Map<number, string>; rawOutput: string; error: string | null }> {
     if (!isValidTarget(target)) {
       return { hops: new Map(), rawOutput: '', error: `Invalid target: ${target}` }
@@ -207,11 +221,14 @@ export class NativeEngine implements IProberEngine {
       const hops = new Map<number, string>()
       let spawnError: string | null = null
 
-      console.log(`[NativeEngine] tracert ${target} -d -h ${maxHops} -w 1000`)
+      console.log(`[NativeEngine] tracert ${target} -d -h ${maxHops} -w 1000 ${useIPv6 ? '-6' : ''}`)
 
       let child: ReturnType<typeof spawn>
       try {
-        child = spawn('tracert', ['-d', '-h', String(maxHops), '-w', '1000', target], {
+        const args = ['-d', '-h', String(maxHops), '-w', '1000']
+        if (useIPv6) args.push('-6')
+        args.push(target)
+        child = spawn('tracert', args, {
           windowsHide: true
         })
       } catch (err) {
@@ -234,13 +251,36 @@ export class NativeEngine implements IProberEngine {
       child.on('close', (code) => {
         if (spawnError) { resolve({ hops, rawOutput: output, error: spawnError }); return }
 
-        // Parse tracert output (locale-agnostic): <N> ... <IP>
-        for (const line of output.split('\n')) {
-          const m = line.match(/^\s*(\d+)\s+.*?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)
-          if (m) hops.set(parseInt(m[1], 10), m[2])
+        // Parse tracert output (locale-agnostic). Robust against:
+        //   - CR-only / CRLF line endings (split + strip \r)
+        //   - Control chars / BOM / non-printable noise at start of line
+        //   - Hop number on its own line, IP on the next visible part
+        // Strategy: any line whose first non-whitespace token is a small
+        //   integer is treated as a hop line; the IP is extracted from
+        //   anywhere on the line.
+        for (const rawLine of output.split(/\r?\n/)) {
+          // Strip CR + any leading control bytes (BOM, NUL, etc.)
+          // eslint-disable-next-line no-control-regex
+          const line = rawLine.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F﻿]/g, '')
+          const ttlMatch = line.match(/^\s*(\d{1,3})(?:\s|$)/)
+          if (!ttlMatch) continue
+          const ttl = parseInt(ttlMatch[1], 10)
+          // Tracert hop numbers are 1..maxHops — anything outside is noise
+          // (e.g. "over a maximum of 30 hops:" starts with a word, so it
+          // won't reach here, but guard anyway).
+          if (ttl < 1 || ttl > maxHops) continue
+          const ip = extractIPFromText(line, useIPv6)
+          if (ip) hops.set(ttl, ip)
         }
 
         console.log(`[NativeEngine] tracert done (exit=${code}): ${hops.size} hops discovered`)
+        if (hops.size === 0 && output.length > 0) {
+          // Diagnostic: dump first 6 non-empty lines so we can see why
+          // parsing fell through (e.g. localised header, weird whitespace).
+          const sample = output.split(/\r?\n/).filter((l) => l.trim()).slice(0, 6)
+          console.warn('[NativeEngine] tracert output had data but no hops parsed. First lines:')
+          sample.forEach((l, i) => console.warn(`  [${i}] ${JSON.stringify(l)}`))
+        }
         hops.forEach((ip, ttl) => console.log(`  hop ${ttl}: ${ip}`))
 
         const exitError =
@@ -258,6 +298,12 @@ export class NativeEngine implements IProberEngine {
 
   async probe(target: string, ttl: number, opts: ProbeOptions): Promise<ProbeResult> {
     if (!isValidTarget(target)) throw new Error(`Invalid target: ${target}`)
+
+    // IcmpSendEcho is IPv4-only. IPv6 uses ping fallback.
+    if (opts.useIPv6 || isLikelyIPv6(target)) {
+      return this.pingFallback(target, ttl, opts)
+    }
+
     // Fall back to ping.exe if the ICMP API could not be loaded
     if (!this.icmp) return this.pingFallback(target, ttl, opts)
 
@@ -317,7 +363,9 @@ export class NativeEngine implements IProberEngine {
   private pingFallback(target: string, ttl: number, opts: ProbeOptions): Promise<ProbeResult> {
     return new Promise((resolve, reject) => {
       const probeStart = Date.now()
-      const args = ['-i', String(ttl), '-n', '1', '-w', String(opts.timeoutMs), target]
+      const args = ['-i', String(ttl), '-n', '1', '-w', String(opts.timeoutMs)]
+      if (opts.useIPv6 || isLikelyIPv6(target)) args.push('-6')
+      args.push(target)
       const child = spawn('ping', args, { windowsHide: true })
 
       let output = ''
@@ -325,9 +373,9 @@ export class NativeEngine implements IProberEngine {
       child.stderr.on('data', (d: Buffer) => (output += d.toString()))
 
       child.on('close', () => {
+        const useIPv6 = !!opts.useIPv6 || isLikelyIPv6(target)
         const lines = output.split('\n')
-        const headerIP = lines[0]?.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)?.[1]
-        const IP_RE  = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/
+        const headerIP = lines[0] ? extractIPFromText(lines[0], useIPv6) : null
         const RTT_RE = /[=<](\d+)\s*ms/i
 
         let replyIP: string | null = null
@@ -335,9 +383,8 @@ export class NativeEngine implements IProberEngine {
         let ttlExpiredIP: string | null = null
 
         for (let i = 1; i < lines.length; i++) {
-          const ipM = lines[i].match(IP_RE)
-          if (!ipM) continue
-          const ip = ipM[1]
+          const ip = extractIPFromText(lines[i], useIPv6)
+          if (!ip) continue
           if (ip === headerIP) continue
           const rttM = lines[i].match(RTT_RE)
           if (rttM) { replyIP = ip; replyRtt = parseInt(rttM[1], 10); break }

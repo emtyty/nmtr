@@ -14,17 +14,14 @@ files:
   - out/**/*
   - "!out/**/*.map"
   - package.json
-  - node_modules/pingus/**/*
-  - "!node_modules/pingus/src/**/*"
-  - node_modules/raw-socket/**/*
-  - "!node_modules/raw-socket/src/**/*"
-  - "!node_modules/raw-socket/build/raw.vcxproj"
-  - "!node_modules/raw-socket/build/raw.vcxproj.filters"
-  - "!node_modules/raw-socket/build/Release/obj/**/*"
-  - "!node_modules/raw-socket/build/Release/*.iobj"
-  - "!node_modules/raw-socket/build/Release/*.ipdb"
-  - "!node_modules/raw-socket/build/Release/*.pdb"
-  - node_modules/@amuject/**/*
+
+  # pingus / raw-socket / @amuject are deps of the unused PingusEngine —
+  # tree-shaken out of out/main bundle. Source kept in src/ for future use,
+  # but the node_modules are pure dead weight in the asar.
+  - "!node_modules/pingus/**/*"
+  - "!node_modules/raw-socket/**/*"
+  - "!node_modules/@amuject/**/*"
+
   - node_modules/koffi/**/*
   - "!node_modules/koffi/src/**/*"
   - "!node_modules/koffi/doc/**/*"
@@ -94,6 +91,19 @@ files:
   - "!node_modules/nan/**/*"
   - "!node_modules/type-fest/**/*"
 
+  # Strip dead weight from third-party CJS deps inside the asar:
+  # source maps, TS sources/types, test/doc/example dirs.
+  # NOTE: do NOT add `**/src/**/*` — some packages (e.g. `debug`) ship
+  # their runtime entry as `main: "./src/index.js"`, and stripping it
+  # breaks `require('debug')` at startup.
+  - "!node_modules/**/*.map"
+  - "!node_modules/**/*.ts"
+  - "!node_modules/**/test/**/*"
+  - "!node_modules/**/tests/**/*"
+  - "!node_modules/**/docs/**/*"
+  - "!node_modules/**/example/**/*"
+  - "!node_modules/**/examples/**/*"
+
 extraResources:
   - from: resources/
     to: .
@@ -101,9 +111,6 @@ extraResources:
 
 asar: true
 asarUnpack:
-  - node_modules/pingus/**/*
-  - node_modules/raw-socket/**/*
-  - node_modules/@amuject/**/*
   - node_modules/koffi/**/*
 
 win:
