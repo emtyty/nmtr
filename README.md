@@ -22,6 +22,10 @@ A modern rewrite of WinMTR as an Electron desktop application for Windows. Combi
 - **System tray** — minimize to tray, context menu shows active sessions
 - **Auto-updater** — GitHub Releases integration via `electron-updater`
 - **Keyboard shortcuts** — `Ctrl+Enter` start/stop, `Ctrl+R` reset, `Ctrl+E` export, `Ctrl+,` settings
+- **True IPv6 support** — full end-to-end IPv6 tracing, including protocol selection, engine, UI toggle, rerun, and export
+- **Pause/resume live traces** — pause and resume active traces without losing session state
+- **History filter/sort/rerun** — filter and sort trace history, rerun any previous session with one click
+- **SLO alerting** — configurable alert thresholds for packet loss, RTT, and jitter; live alert stack (bottom right), desktop notifications, and alert history
 
 ## Requirements
 
