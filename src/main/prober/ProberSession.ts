@@ -69,7 +69,8 @@ export class ProberSession extends EventEmitter {
       const discovery = EngineFactory.createDiscovery()
       const { hops, rawOutput, error } = await discovery.discoverHops(
         this.config.target,
-        this.config.maxHops
+        this.config.maxHops,
+        this.config.useIPv6
       )
       if (error) console.error(`[ProberSession] ${this.id} tracert error: ${error}`)
       console.log(`[ProberSession] ${this.id} tracert discovery complete — hops discovered=${hops.size}`)
@@ -96,7 +97,7 @@ export class ProberSession extends EventEmitter {
     // 2. Probe engine — PingusEngine preferred (raw socket, ICMP/UDP/TCP), NativeEngine fallback
     console.log(`[ProberSession] ${this.id} selecting probe engine…`)
     try {
-      const { engine, mode } = await EngineFactory.createProber()
+      const { engine, mode } = await EngineFactory.createProber(this.config)
       this.engine = engine
       this.engineMode = mode
       console.log(`[ProberSession] ${this.id} probe engine ready — mode=${mode}`)

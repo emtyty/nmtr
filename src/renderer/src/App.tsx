@@ -12,6 +12,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useSettingsStore } from './store/useSettingsStore'
 import { UpdateBanner } from './components/update/UpdateBanner'
 import { useUpdater } from './hooks/useUpdater'
+import { RuntimeAlertStack } from './components/layout/RuntimeAlertStack'
 
 export default function App(): React.JSX.Element {
   const { load } = useSettingsStore()
@@ -25,9 +26,10 @@ export default function App(): React.JSX.Element {
   useUpdater()
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-canvas-default text-fg-default">
+    <div className="relative flex flex-col h-screen overflow-hidden bg-canvas-default text-fg-default">
       <TitleBar />
       <UpdateBanner />
+      <RuntimeAlertStack />
       <div className="flex flex-1 overflow-hidden">
         <IconNav activeView={activeView} onNavigate={setActiveView} />
         {activeView === 'traces' ? (

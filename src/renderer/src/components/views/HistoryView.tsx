@@ -5,6 +5,10 @@ import { useSettingsStore } from '../../store/useSettingsStore'
 import type { HistoryEntry } from '@shared/types'
 import type { TraceConfig } from '@shared/types'
 
+function isLikelyIPv6Target(target: string): boolean {
+  return target.includes(':')
+}
+
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
     month: 'short', day: 'numeric',
@@ -79,7 +83,7 @@ export function HistoryView(): React.JSX.Element {
         intervalMs: settings.defaultIntervalMs,
         packetSize: settings.defaultPacketSize,
         maxHops: settings.maxHops,
-        useIPv6: false,
+        useIPv6: isLikelyIPv6Target(entry.target) || settings.defaultUseIPv6,
         resolveHostnames: settings.resolveHostnames
       }
       const result = await window.nmtrAPI.traceStart({ config })

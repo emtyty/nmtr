@@ -87,9 +87,14 @@ export interface AppSettings {
   defaultPort: number
   defaultIntervalMs: number
   defaultPacketSize: number
+  defaultUseIPv6: boolean
   maxHops: number
   resolveHostnames: boolean
   minimizeToTray: boolean
+  alertsEnabled: boolean
+  alertLossPct: number
+  alertRttMs: number
+  alertCooldownSec: number
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -98,9 +103,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultPort: 80,
   defaultIntervalMs: 500,
   defaultPacketSize: 64,
+  defaultUseIPv6: false,
   maxHops: 30,
   resolveHostnames: true,
-  minimizeToTray: true
+  minimizeToTray: true,
+  alertsEnabled: false,
+  alertLossPct: 20,
+  alertRttMs: 200,
+  alertCooldownSec: 30
 }
 
 // ─── Recording / Playback ─────────────────────────────────────────────────────

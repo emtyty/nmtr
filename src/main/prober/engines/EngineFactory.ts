@@ -1,5 +1,6 @@
 import { NativeEngine } from './NativeEngine'
 import type { IProberEngine } from './IProberEngine'
+import type { TraceConfig } from '../../../shared/types'
 
 export type EngineMode = 'pingus' | 'native'
 
@@ -11,8 +12,8 @@ export const EngineFactory = {
 
   /** RTT probe engine — NativeEngine (ping.exe, ICMP).
    *  PingusEngine (TCP/UDP) will be added here once stabilised. */
-  async createProber(): Promise<{ engine: IProberEngine; mode: EngineMode }> {
-    console.log('[EngineFactory] Probe engine: native')
+  async createProber(config: TraceConfig): Promise<{ engine: IProberEngine; mode: EngineMode }> {
+    console.log(`[EngineFactory] Probe engine: native (ipv6=${config.useIPv6 ? 'on' : 'off'})`)
     return { engine: new NativeEngine(), mode: 'native' }
   }
 }

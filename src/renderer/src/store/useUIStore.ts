@@ -1,6 +1,14 @@
 import { create } from 'zustand'
 import type { TracertResultEvent } from '@shared/types'
 
+export interface RuntimeAlert {
+  id: string
+  level: 'warn' | 'error'
+  title: string
+  message: string
+  createdAt: number
+}
+
 interface UIState {
   settingsOpen: boolean
   openSettings: () => void
@@ -21,6 +29,10 @@ interface UIState {
   setUpdateProgress: (percent: number | null) => void
   setUpdateDownloaded: () => void
   setUpdateError: (message: string | null) => void
+
+  runtimeAlerts: RuntimeAlert[]
+  pushRuntimeAlert: (alert: Omit<RuntimeAlert, 'createdAt'>) => void
+  dismissRuntimeAlert: (id: string) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -41,5 +53,13 @@ export const useUIStore = create<UIState>((set) => ({
   setUpdateInfo: (info) => set({ updateInfo: info, updateError: null }),
   setUpdateProgress: (percent) => set({ updateProgress: percent }),
   setUpdateDownloaded: () => set({ updateDownloaded: true, updateProgress: null }),
-  setUpdateError: (message) => set({ updateError: message, updateProgress: null })
+  setUpdateError: (message) => set({ updateError: message, updateProgress: null }),
+
+  runtimeAlerts: [],
+  pushRuntimeAlert: (alert) => set((state) => ({
+    runtimeAlerts: [{ ...alert, createdAt: Date.now() }, ...state.runtimeAlerts].slice(0, 6)
+  })),
+  dismissRuntimeAlert: (id) => set((state) => ({
+    runtimeAlerts: state.runtimeAlerts.filter((a) => a.id !== id)
+  }))
 }))

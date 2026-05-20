@@ -15,12 +15,19 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
 
   const [target, setTarget] = useState('')
   const [intervalMs, setIntervalMs] = useState(500)
+  const [useIPv6, setUseIPv6] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const session = sessionId ? sessions[sessionId] : null
   const isRunning = session?.status === 'running'
   const isPaused = session?.status === 'paused'
   const isThisSessionRecording = isRecording && recordingSessionId === sessionId
+
+  useEffect(() => {
+    if (!isRunning && !isPaused) {
+      setUseIPv6(settings.defaultUseIPv6)
+    }
+  }, [settings.defaultUseIPv6, isRunning, isPaused])
 
   async function handleStart(): Promise<void> {
     if (!target.trim()) return
@@ -32,7 +39,7 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
         intervalMs,
         packetSize: settings.defaultPacketSize ?? 64,
         maxHops: settings.maxHops ?? 30,
-        useIPv6: false,
+        useIPv6,
         resolveHostnames: settings.resolveHostnames ?? true
       }
       const result = await window.nmtrAPI.traceStart({ config })
@@ -113,8 +120,19 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
 
       {/* Protocol indicator (only ICMP supported currently) */}
       <span className="bg-canvas-default border border-border-default rounded px-2 py-1.5 text-base text-fg-muted select-none">
-        ICMP
+        {useIPv6 ? 'ICMPv6' : 'ICMP'}
       </span>
+
+      <label className="flex items-center gap-1.5 text-base text-fg-muted cursor-pointer">
+        <input
+          type="checkbox"
+          checked={useIPv6}
+          onChange={(e) => setUseIPv6(e.target.checked)}
+          disabled={isRunning || isPaused || loading}
+          className="w-4 h-4 accent-accent-blue"
+        />
+        IPv6
+      </label>
 
       <div className="w-px h-5 bg-border-default" />
 

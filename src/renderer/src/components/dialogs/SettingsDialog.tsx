@@ -106,6 +106,15 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
+                  checked={draft.defaultUseIPv6}
+                  onChange={(e) => setProp('defaultUseIPv6', e.target.checked)}
+                  className="w-4 h-4 accent-accent-blue"
+                />
+                <span className="text-base text-fg-default">Default to IPv6 for new traces</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
                   checked={draft.resolveHostnames}
                   onChange={(e) => setProp('resolveHostnames', e.target.checked)}
                   className="w-4 h-4 accent-accent-blue"
@@ -121,6 +130,65 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
                 />
                 <span className="text-base text-fg-default">Minimize to Tray on Close</span>
               </label>
+            </div>
+
+            {/* Runtime alerts */}
+            <div className="pt-2 border-t border-border-default space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draft.alertsEnabled}
+                  onChange={(e) => setProp('alertsEnabled', e.target.checked)}
+                  className="w-4 h-4 accent-accent-blue"
+                />
+                <span className="text-base text-fg-default">Enable SLO alerts</span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
+                    Loss Threshold (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    disabled={!draft.alertsEnabled}
+                    className="w-full bg-canvas-default border border-border-default rounded px-3 py-1.5 text-base text-fg-default outline-none focus:border-accent-blue disabled:opacity-60"
+                    value={draft.alertLossPct}
+                    onChange={(e) => setProp('alertLossPct', Math.min(100, Math.max(1, Number(e.target.value))))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
+                    RTT Threshold (ms)
+                  </label>
+                  <input
+                    type="number"
+                    min={10}
+                    max={10_000}
+                    disabled={!draft.alertsEnabled}
+                    className="w-full bg-canvas-default border border-border-default rounded px-3 py-1.5 text-base text-fg-default outline-none focus:border-accent-blue disabled:opacity-60"
+                    value={draft.alertRttMs}
+                    onChange={(e) => setProp('alertRttMs', Math.min(10000, Math.max(10, Number(e.target.value))))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
+                  Alert Cooldown (sec)
+                </label>
+                <input
+                  type="number"
+                  min={5}
+                  max={600}
+                  disabled={!draft.alertsEnabled}
+                  className="w-full bg-canvas-default border border-border-default rounded px-3 py-1.5 text-base text-fg-default outline-none focus:border-accent-blue disabled:opacity-60"
+                  value={draft.alertCooldownSec}
+                  onChange={(e) => setProp('alertCooldownSec', Math.min(600, Math.max(5, Number(e.target.value))))}
+                />
+              </div>
             </div>
           </div>
 

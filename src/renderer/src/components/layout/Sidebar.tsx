@@ -33,7 +33,7 @@ export function Sidebar(): React.JSX.Element {
       intervalMs: settings.defaultIntervalMs ?? DEFAULT_SETTINGS.defaultIntervalMs,
       packetSize: settings.defaultPacketSize ?? DEFAULT_SETTINGS.defaultPacketSize,
       maxHops: settings.maxHops ?? DEFAULT_SETTINGS.maxHops,
-      useIPv6: false,
+      useIPv6: settings.defaultUseIPv6 ?? DEFAULT_SETTINGS.defaultUseIPv6,
       resolveHostnames: settings.resolveHostnames ?? DEFAULT_SETTINGS.resolveHostnames
     }
     try {
@@ -56,7 +56,7 @@ export function Sidebar(): React.JSX.Element {
         intervalMs: result.meta.intervalMs,
         packetSize: DEFAULT_SETTINGS.defaultPacketSize,
         maxHops: DEFAULT_SETTINGS.maxHops,
-        useIPv6: false,
+        useIPv6: settings.defaultUseIPv6 ?? DEFAULT_SETTINGS.defaultUseIPv6,
         resolveHostnames: false
       }
       addPlaybackSession(result.sessionId, config)
