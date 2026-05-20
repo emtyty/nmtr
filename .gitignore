@@ -1,6 +1,13 @@
 node_modules/
 dist/
+dist-release/
 out/
 .env
 *.log
 node_modules
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Local Claude Code workspace state
+.claude/
