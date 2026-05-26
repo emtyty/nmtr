@@ -12,6 +12,7 @@ export default defineConfig({
       }
     },
     build: {
+      minify: 'esbuild',
       rollupOptions: {
         // Native addons and CJS-only packages must not be bundled — loaded at runtime
         external: ['pingus', 'electron-store', 'node-whois', 'electron-updater']
@@ -19,7 +20,10 @@ export default defineConfig({
     }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      minify: 'esbuild'
+    }
   },
   renderer: {
     resolve: {
@@ -28,6 +32,10 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
-    plugins: [react()]
+    plugins: [react()],
+    build: {
+      minify: 'esbuild',
+      cssMinify: true
+    }
   }
 })
