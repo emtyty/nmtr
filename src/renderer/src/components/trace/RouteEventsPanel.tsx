@@ -24,7 +24,7 @@ export function RouteEventsPanel({ events, sessionStartedAt }: RouteEventsPanelP
   const sorted = [...events].reverse()
 
   return (
-    <div className="flex-shrink-0 border-t border-border-default bg-canvas-subtle">
+    <div className="flex-1 min-w-0 bg-canvas-subtle">
       {/* Header */}
       <button
         className="w-full flex items-center gap-2 px-3 h-9 text-sm font-semibold text-fg-muted hover:text-fg-default hover:bg-canvas-hover transition-colors select-none"

@@ -3,6 +3,7 @@ import { useTraceStore } from '../../store/useTraceStore'
 import { useUIStore } from '../../store/useUIStore'
 import { HopTable } from './HopTable'
 import { RouteEventsPanel } from './RouteEventsPanel'
+import { BottleneckPanel } from './BottleneckPanel'
 import { TraceControls } from '../controls/TraceControls'
 import { ExportMenu } from '../controls/ExportMenu'
 import { WhoisDialog } from '../dialogs/WhoisDialog'
@@ -137,12 +138,18 @@ export function TraceView(): React.JSX.Element {
         <EmptyState />
       )}
 
-      {/* Route events panel — shown only in table tab */}
-      {session && activeTab === 'table' && (
-        <RouteEventsPanel
-          events={session.routeEvents}
-          sessionStartedAt={session.startedAt}
-        />
+      {/* Bottom panels — shown only in table tab, side-by-side */}
+      {session && activeTab === 'table' && (session.routeEvents.length > 0 || bottleneckInfo) && (
+        <div className="flex-shrink-0 flex border-t border-border-default">
+          <RouteEventsPanel
+            events={session.routeEvents}
+            sessionStartedAt={session.startedAt}
+          />
+          <BottleneckPanel
+            hops={session.hops}
+            bottleneckInfo={bottleneckInfo}
+          />
+        </div>
       )}
 
       {/* Playback bar — shown only for playback sessions */}
