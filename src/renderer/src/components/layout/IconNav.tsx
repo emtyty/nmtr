@@ -57,6 +57,13 @@ const PortScanIcon = (
   </svg>
 )
 
+const DnsIcon = (
+  <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <circle cx="10" cy="10" r="7.5" />
+    <path d="M2.5 10h15M10 2.5c2 2.2 3 4.8 3 7.5s-1 5.3-3 7.5c-2-2.2-3-4.8-3-7.5s1-5.3 3-7.5z" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 const SettingsIcon = (
   <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
     <circle cx="10" cy="10" r="2.5" />
@@ -73,6 +80,7 @@ export function IconNav({ activeView, onNavigate }: IconNavProps): React.JSX.Ele
     { kind: 'view', id: 'lan', label: 'LAN', icon: LanIcon },
     { kind: 'view', id: 'portscan', label: 'Ports', icon: PortScanIcon },
     { kind: 'view', id: 'speedtest', label: 'Speed', icon: SpeedTestIcon },
+    { kind: 'view', id: 'dns', label: 'DNS', icon: DnsIcon },
     { kind: 'action', label: 'Settings', icon: SettingsIcon, onAction: openSettings }
   ]
 

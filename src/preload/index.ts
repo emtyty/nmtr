@@ -29,6 +29,18 @@ import type {
   NmapCheckResult,
   PortScanProgressEvent,
   PortScanDoneEvent,
+  DnsLookupPayload,
+  DnsLookupResult,
+  DnsExportPayload,
+  DnsHistoryRecord,
+  DnsPropagationPayload,
+  DnsPropagationResult,
+  DnsEmailPayload,
+  DnsEmailSecurity,
+  DnsFcrdnsPayload,
+  DnsFcrdnsResult,
+  DnsDelegationPayload,
+  DnsDelegationResult,
   OpenExternalPayload,
   HopUpdateEvent,
   HopsBatchEvent,
@@ -110,6 +122,26 @@ const nmtrAPI = {
     on(IPC.PORTSCAN_PROGRESS, cb),
   onPortScanDone: (cb: (e: PortScanDoneEvent) => void): Unsubscribe =>
     on(IPC.PORTSCAN_DONE, cb),
+
+  // ── DNS resolve ──────────────────────────────────────────────────────────────
+  dnsLookup: (payload: DnsLookupPayload): Promise<DnsLookupResult> =>
+    ipcRenderer.invoke(IPC.DNS_LOOKUP, payload),
+  dnsExport: (payload: DnsExportPayload): Promise<ExportResult> =>
+    ipcRenderer.invoke(IPC.DNS_EXPORT, payload),
+  dnsHistoryGet: (): Promise<DnsHistoryRecord[]> =>
+    ipcRenderer.invoke(IPC.DNS_HISTORY_GET),
+  dnsHistoryClear: (): Promise<void> =>
+    ipcRenderer.invoke(IPC.DNS_HISTORY_CLEAR),
+  dnsHistoryRemove: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.DNS_HISTORY_REMOVE, id),
+  dnsPropagation: (payload: DnsPropagationPayload): Promise<DnsPropagationResult> =>
+    ipcRenderer.invoke(IPC.DNS_PROPAGATION, payload),
+  dnsEmail: (payload: DnsEmailPayload): Promise<DnsEmailSecurity> =>
+    ipcRenderer.invoke(IPC.DNS_EMAIL, payload),
+  dnsFcrdns: (payload: DnsFcrdnsPayload): Promise<DnsFcrdnsResult> =>
+    ipcRenderer.invoke(IPC.DNS_FCRDNS, payload),
+  dnsDelegation: (payload: DnsDelegationPayload): Promise<DnsDelegationResult> =>
+    ipcRenderer.invoke(IPC.DNS_DELEGATION, payload),
 
   // ── Shell ────────────────────────────────────────────────────────────────────
   openExternal: (payload: OpenExternalPayload): Promise<void> =>

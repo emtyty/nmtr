@@ -25,6 +25,12 @@ export function formatExport(
       return { content: toCsv(hops, config), mimeType: 'text/csv', suggestedFilename: `${filename}.csv` }
     case 'html':
       return { content: toHtml(hops, config), mimeType: 'text/html', suggestedFilename: `${filename}.html` }
+    case 'json':
+      return {
+        content: JSON.stringify({ target: config.target, config, exportedAt: new Date().toISOString(), hops }, null, 2),
+        mimeType: 'application/json',
+        suggestedFilename: `${filename}.json`
+      }
   }
 }
 

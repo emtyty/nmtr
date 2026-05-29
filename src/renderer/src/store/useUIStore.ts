@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { TracertResultEvent } from '@shared/types'
 
-export type NavView = 'traces' | 'history' | 'lan' | 'speedtest' | 'portscan'
+export type NavView = 'traces' | 'history' | 'lan' | 'speedtest' | 'portscan' | 'dns'
 
 export interface RuntimeAlert {
   id: string
@@ -25,6 +25,11 @@ interface UIState {
   tracePrefill: string | null
   traceHost: (target: string) => void      // set prefill + switch to traces view
   clearTracePrefill: () => void
+
+  // Pre-fill the DNS view target from elsewhere. Consumed (cleared) by DnsView.
+  dnsPrefill: string | null
+  resolveDnsFor: (target: string) => void   // set prefill + switch to dns view
+  clearDnsPrefill: () => void
 
   // Global WHOIS dialog (so any view can trigger it).
   whoisIp: string | null
@@ -67,6 +72,10 @@ export const useUIStore = create<UIState>((set) => ({
   tracePrefill: null,
   traceHost: (target) => set({ tracePrefill: target, activeView: 'traces' }),
   clearTracePrefill: () => set({ tracePrefill: null }),
+
+  dnsPrefill: null,
+  resolveDnsFor: (target) => set({ dnsPrefill: target, activeView: 'dns' }),
+  clearDnsPrefill: () => set({ dnsPrefill: null }),
 
   whoisIp: null,
   openWhois: (ip) => set({ whoisIp: ip }),
