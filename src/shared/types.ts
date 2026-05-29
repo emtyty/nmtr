@@ -2,7 +2,7 @@
 
 export type Protocol = 'icmp' | 'udp' | 'tcp'
 export type SessionStatus = 'idle' | 'running' | 'paused' | 'stopped'
-export type ExportFormat = 'text' | 'csv' | 'html'
+export type ExportFormat = 'text' | 'csv' | 'html' | 'json'
 export type Theme = 'dark' | 'light' | 'system'
 
 // ─── Probe / engine types ─────────────────────────────────────────────────────
@@ -81,6 +81,12 @@ export interface TraceSession {
 
 // ─── App settings ─────────────────────────────────────────────────────────────
 
+/** A user-managed DNS resolver entry shown in the DNS Resolver view dropdown. */
+export interface DnsResolverPreset {
+  label: string
+  value: string // resolver IP address
+}
+
 export interface AppSettings {
   theme: Theme
   defaultProtocol: Protocol
@@ -99,7 +105,16 @@ export interface AppSettings {
   turnServerUri: string
   turnServerUser: string
   turnServerPass: string
+  // DNS Resolver view — user-managed list of resolver presets (seeded with public ones).
+  dnsResolvers: DnsResolverPreset[]
 }
+
+/** Default DNS resolver presets shown in the DNS Resolver view. */
+export const DEFAULT_DNS_RESOLVERS: DnsResolverPreset[] = [
+  { label: 'Cloudflare (1.1.1.1)', value: '1.1.1.1' },
+  { label: 'Google (8.8.8.8)', value: '8.8.8.8' },
+  { label: 'Quad9 (9.9.9.9)', value: '9.9.9.9' }
+]
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
@@ -117,7 +132,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   alertCooldownSec: 30,
   turnServerUri: '',
   turnServerUser: '',
-  turnServerPass: ''
+  turnServerPass: '',
+  dnsResolvers: DEFAULT_DNS_RESOLVERS
 }
 
 // ─── Recording / Playback ─────────────────────────────────────────────────────
@@ -346,7 +362,7 @@ export interface PortScanRecord {
   openCount: number
 }
 
-export type PortScanExportFormat = 'csv' | 'html' | 'json'
+export type PortScanExportFormat = 'csv' | 'html' | 'json' | 'text'
 export interface PortScanExportPayload {
   result: PortScanResult
   format: PortScanExportFormat
@@ -380,6 +396,174 @@ export interface PortScanProgressEvent {
 export interface PortScanDoneEvent {
   scanId: string
   result: PortScanResult
+}
+
+// ─── DNS resolve ───────────────────────────────────────────────────────────────
+
+/** The record types resolved in a single DNS scan, in display order. */
+export type DnsRecordType =
+  | 'A' | 'AAAA' | 'CNAME' | 'MX' | 'NS' | 'PTR'
+  | 'SRV' | 'SOA' | 'TXT' | 'CAA' | 'DS' | 'DNSKEY'
+
+export const DNS_RECORD_TYPES: DnsRecordType[] = [
+  'A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'SRV', 'SOA', 'TXT', 'CAA', 'DS', 'DNSKEY'
+]
+
+/** A single resource record returned for a given type. */
+export interface DnsRecord {
+  name: string                  // owner name the record belongs to
+  ttl: number                   // seconds
+  value: string                 // human-readable formatted value
+  fields: Record<string, string | number> // structured per-type fields (e.g. SOA serial, MX preference)
+}
+
+/** All records of one type, plus the per-type query outcome. */
+export interface DnsRecordSet {
+  type: DnsRecordType
+  records: DnsRecord[]
+  rcode: string | null          // DNS response code name, e.g. "NOERROR", "NXDOMAIN"
+  error: string | null          // transport/parse error for this type, null on success
+}
+
+export interface DnsLookupConfig {
+  target: string                // hostname or IP (IP → reverse lookup for PTR)
+  resolver: string              // resolver IP, or '' for system default
+  authoritative?: boolean       // query the zone's authoritative NS instead of a recursive resolver
+  skipHistory?: boolean         // don't persist this lookup (e.g. watch-mode ticks)
+}
+
+// ── DNSSEC validation (feature 1) ──
+export type DnssecStatus = 'secure' | 'insecure' | 'bogus' | 'indeterminate'
+export interface DnssecInfo {
+  status: DnssecStatus
+  adFlag: boolean               // resolver set the Authenticated Data bit
+  hasDnskey: boolean
+  hasDs: boolean
+  detail: string                // human-readable explanation
+}
+
+// ── Diff vs previous lookup (feature 7) ──
+export interface DnsTypeDiff {
+  type: DnsRecordType
+  added: string[]               // values present now, absent before
+  removed: string[]             // values present before, gone now
+}
+export interface DnsDiff {
+  previousAt: number | null     // when the compared prior lookup ran; null = none
+  changes: DnsTypeDiff[]        // only types that changed
+}
+
+export interface DnsLookupResult {
+  target: string
+  queriedName: string           // name actually queried (reverse name when target is an IP)
+  resolver: string              // resolver IP actually used
+  authoritative: boolean        // whether the answer came from an authoritative NS (AA flag)
+  sets: DnsRecordSet[]          // one per record type, in DNS_RECORD_TYPES order
+  dnssec: DnssecInfo            // DNSSEC validation summary
+  diff: DnsDiff | null          // change vs previous lookup of this target+resolver
+  durationMs: number
+  error: string | null          // fatal error (invalid target / no resolver), null otherwise
+}
+
+// ── Propagation across resolvers (feature 2) ──
+export interface DnsPropagationEntry {
+  resolver: string
+  label: string
+  values: string[]
+  rcode: string | null
+  error: string | null
+  rttMs: number
+}
+export interface DnsPropagationResult {
+  name: string
+  type: DnsRecordType
+  entries: DnsPropagationEntry[]
+  consistent: boolean           // all non-error resolvers returned the same value set
+}
+export interface DnsPropagationPayload {
+  name: string
+  type: DnsRecordType
+}
+
+// ── Email security (feature 4) ──
+export type DnsCheckStatus = 'pass' | 'warn' | 'fail' | 'none'
+export interface DnsEmailCheck {
+  present: boolean
+  value: string | null
+  status: DnsCheckStatus
+  note: string
+}
+export interface DnsEmailSecurity {
+  domain: string
+  spf: DnsEmailCheck
+  dmarc: DnsEmailCheck
+  mtaSts: DnsEmailCheck
+  bimi: DnsEmailCheck
+  dkim: { selector: string; value: string }[]   // DKIM selectors that resolved
+  dkimChecked: string[]                          // selectors probed
+  error: string | null
+}
+export interface DnsEmailPayload {
+  domain: string
+  resolver: string
+}
+
+// ── Forward-confirmed reverse DNS / FCrDNS (feature 5) ──
+export interface DnsFcrdnsEntry {
+  ip: string
+  ptr: string | null            // PTR name for the IP
+  forwardIps: string[]          // IPs the PTR name forward-resolves to
+  confirmed: boolean            // original IP appears in forwardIps
+}
+export interface DnsFcrdnsResult {
+  entries: DnsFcrdnsEntry[]
+  error: string | null
+}
+export interface DnsFcrdnsPayload {
+  ips: string[]
+  resolver: string
+}
+
+// ── Delegation trace / dig +trace (feature 6) ──
+export interface DnsDelegationStep {
+  zone: string                  // the zone being resolved at this step
+  serverQueried: string         // IP queried
+  serverName: string | null     // name of that server, if known
+  nsRecords: string[]           // NS records returned (referral or authoritative)
+  authoritative: boolean        // AA flag set (reached the authoritative servers)
+  rttMs: number
+  error: string | null
+}
+export interface DnsDelegationResult {
+  name: string
+  steps: DnsDelegationStep[]
+  error: string | null
+}
+export interface DnsDelegationPayload {
+  name: string
+}
+
+/** Persisted record of a completed DNS lookup (for the history table). */
+export interface DnsHistoryRecord {
+  id: string
+  target: string
+  queriedName: string
+  resolver: string
+  scannedAt: number             // Date.now()
+  totalRecords: number
+  typeCounts: { type: DnsRecordType; count: number }[] // non-empty types only
+  durationMs: number
+  result: DnsLookupResult        // full result, so a history click restores it without re-resolving
+}
+
+export interface DnsLookupPayload {
+  config: DnsLookupConfig
+}
+
+export type DnsExportFormat = 'csv' | 'html' | 'json' | 'text'
+export interface DnsExportPayload {
+  result: DnsLookupResult
+  format: DnsExportFormat
 }
 
 // ─── IPC push event payloads (main → renderer) ───────────────────────────────

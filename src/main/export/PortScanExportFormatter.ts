@@ -22,7 +22,25 @@ export function formatPortScanExport(
       return { content: JSON.stringify(result, null, 2), mimeType: 'application/json', suggestedFilename: `${filename}.json` }
     case 'html':
       return { content: toHtml(result), mimeType: 'text/html', suggestedFilename: `${filename}.html` }
+    case 'text':
+      return { content: toText(result), mimeType: 'text/plain', suggestedFilename: `${filename}.txt` }
   }
+}
+
+function toText(result: PortScanResult): string {
+  const lines: string[] = []
+  lines.push(`nmtr port scan of ${result.target}${result.resolvedIp ? ` (${result.resolvedIp})` : ''}`)
+  lines.push(`Protocol: ${result.protocol.toUpperCase()}  Host: ${result.hostUp ? 'up' : 'down'}  Date: ${new Date().toUTCString()}`)
+  lines.push('')
+  lines.push(`${'PORT'.padEnd(12)} ${'STATE'.padEnd(14)} ${'SERVICE'.padEnd(18)} VERSION / BANNER`)
+  lines.push('-'.repeat(70))
+  for (const p of result.ports) {
+    lines.push(`${`${p.port}/${p.protocol}`.padEnd(12)} ${p.state.padEnd(14)} ${(p.service ?? '').padEnd(18)} ${banner(p)}`)
+  }
+  const openCount = result.ports.filter((p) => p.state.startsWith('open')).length
+  lines.push('')
+  lines.push(`${openCount} open · ${result.closedCount} closed · ${result.filteredCount} filtered`)
+  return lines.join('\n') + '\n'
 }
 
 function toCsv(result: PortScanResult): string {

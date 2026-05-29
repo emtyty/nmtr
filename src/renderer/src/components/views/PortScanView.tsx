@@ -436,13 +436,18 @@ export function PortScanView(): React.JSX.Element {
                 </DropdownMenu.Trigger>
                 <DropdownMenu.Portal>
                   <DropdownMenu.Content align="end" sideOffset={4}
-                    className="z-[200] min-w-[120px] p-1 rounded-lg bg-canvas-overlay border border-border-default shadow-2xl">
+                    className="z-[200] min-w-[140px] p-1 rounded-lg bg-canvas-overlay border border-border-default shadow-2xl">
                     {(['csv', 'html', 'json'] as PortScanExportFormat[]).map((fmt) => (
                       <DropdownMenu.Item key={fmt} className={menuItemCls}
                         onSelect={() => window.nmtrAPI.portScanExport({ result, format: fmt })}>
-                        {fmt.toUpperCase()}
+                        <Download className="w-3.5 h-3.5 text-fg-muted" /> {fmt.toUpperCase()}
                       </DropdownMenu.Item>
                     ))}
+                    <DropdownMenu.Separator className="my-1 h-px bg-border-default" />
+                    <DropdownMenu.Item className={menuItemCls}
+                      onSelect={() => window.nmtrAPI.portScanExport({ result, format: 'text' })}>
+                      <Copy className="w-3.5 h-3.5 text-fg-muted" /> Copy as Text
+                    </DropdownMenu.Item>
                   </DropdownMenu.Content>
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>

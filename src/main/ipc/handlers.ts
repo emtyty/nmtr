@@ -12,6 +12,10 @@ import { scanLan } from '../lan/LanScanner'
 import { checkNmap, startPortScan, cancelPortScan } from '../portscan/PortScanner'
 import { PortScanStore } from '../store/PortScanStore'
 import { formatPortScanExport } from '../export/PortScanExportFormatter'
+import { resolveDns } from '../dns/DnsResolver'
+import { checkPropagation, checkEmailSecurity, checkFcrdns, traceDelegation } from '../dns/DnsDiagnostics'
+import { formatDnsExport } from '../export/DnsExportFormatter'
+import { DnsStore } from '../store/DnsStore'
 import type { TrayManager } from '../tray/TrayManager'
 import type {
   TraceStartPayload,
@@ -29,6 +33,12 @@ import type {
   PortScanStartPayload,
   PortScanCancelPayload,
   PortScanExportPayload,
+  DnsLookupPayload,
+  DnsExportPayload,
+  DnsPropagationPayload,
+  DnsEmailPayload,
+  DnsFcrdnsPayload,
+  DnsDelegationPayload,
   OpenExternalPayload
 } from '../../shared/types'
 
@@ -248,6 +258,10 @@ export function registerHandlers(win: BrowserWindow): void {
 
   ipcMain.handle(IPC.PORTSCAN_EXPORT, async (_e, payload: PortScanExportPayload) => {
     const result = formatPortScanExport(payload.result, payload.format)
+    if (payload.format === 'text') {
+      clipboard.writeText(result.content)
+      return result
+    }
     const { filePath } = await dialog.showSaveDialog(win!, {
       defaultPath: result.suggestedFilename,
       filters: [{ name: result.mimeType, extensions: [result.suggestedFilename.split('.').pop()!] }]
@@ -265,6 +279,65 @@ export function registerHandlers(win: BrowserWindow): void {
 
   ipcMain.handle(IPC.PORTSCAN_HISTORY_CLEAR, () => {
     PortScanStore.clear()
+  })
+
+  // ── DNS resolve ──────────────────────────────────────────────────────────
+  ipcMain.handle(IPC.DNS_LOOKUP, async (_e, payload: DnsLookupPayload) => {
+    const result = await resolveDns(payload.config)
+    if (!result.error) {
+      // Diff against the previous lookup, then persist (unless this is a watch-mode tick).
+      try { result.diff = DnsStore.diffAgainstLast(result) } catch { result.diff = null }
+      if (!payload.config.skipHistory) {
+        try { DnsStore.commit(result) } catch { /* history is best-effort */ }
+      }
+    }
+    return result
+  })
+
+  ipcMain.handle(IPC.DNS_PROPAGATION, async (_e, payload: DnsPropagationPayload) => {
+    return await checkPropagation(payload.name, payload.type)
+  })
+
+  ipcMain.handle(IPC.DNS_EMAIL, async (_e, payload: DnsEmailPayload) => {
+    return await checkEmailSecurity(payload.domain, payload.resolver)
+  })
+
+  ipcMain.handle(IPC.DNS_FCRDNS, async (_e, payload: DnsFcrdnsPayload) => {
+    return await checkFcrdns(payload.ips, payload.resolver)
+  })
+
+  ipcMain.handle(IPC.DNS_DELEGATION, async (_e, payload: DnsDelegationPayload) => {
+    return await traceDelegation(payload.name)
+  })
+
+  ipcMain.handle(IPC.DNS_HISTORY_GET, () => {
+    return DnsStore.getAll()
+  })
+
+  ipcMain.handle(IPC.DNS_HISTORY_CLEAR, () => {
+    DnsStore.clear()
+  })
+
+  ipcMain.handle(IPC.DNS_EXPORT, async (_e, payload: DnsExportPayload) => {
+    const result = formatDnsExport(payload.result, payload.format)
+    // "Copy as Text" goes to the clipboard rather than a file.
+    if (payload.format === 'text') {
+      clipboard.writeText(result.content)
+      return result
+    }
+    const { filePath } = await dialog.showSaveDialog(win!, {
+      defaultPath: result.suggestedFilename,
+      filters: [{ name: result.mimeType, extensions: [result.suggestedFilename.split('.').pop()!] }]
+    })
+    if (filePath) {
+      const { writeFileSync } = await import('fs')
+      writeFileSync(filePath, result.content, 'utf8')
+    }
+    return result
+  })
+
+  ipcMain.handle(IPC.DNS_HISTORY_REMOVE, (_e, id: string) => {
+    DnsStore.remove(id)
   })
 
   // ── Shell ──────────────────────────────────────────────────────────────

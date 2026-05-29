@@ -56,6 +56,17 @@ export const IPC = {
   PORTSCAN_PROGRESS: 'portscan:progress',
   PORTSCAN_DONE: 'portscan:done',
 
+  // DNS resolve (renderer → main invoke)
+  DNS_LOOKUP: 'dns:lookup',
+  DNS_EXPORT: 'dns:export',
+  DNS_HISTORY_GET: 'dns:historyGet',
+  DNS_HISTORY_CLEAR: 'dns:historyClear',
+  DNS_HISTORY_REMOVE: 'dns:historyRemove',
+  DNS_PROPAGATION: 'dns:propagation',
+  DNS_EMAIL: 'dns:email',
+  DNS_FCRDNS: 'dns:fcrdns',
+  DNS_DELEGATION: 'dns:delegation',
+
   // Shell (renderer → main invoke)
   OPEN_EXTERNAL: 'shell:openExternal',
 

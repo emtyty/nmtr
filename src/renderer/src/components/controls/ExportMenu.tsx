@@ -6,7 +6,7 @@ interface ExportMenuProps {
 }
 
 export function ExportMenu({ sessionId }: ExportMenuProps): React.JSX.Element {
-  async function handleExport(format: 'text' | 'csv' | 'html'): Promise<void> {
+  async function handleExport(format: 'text' | 'csv' | 'html' | 'json'): Promise<void> {
     try {
       await window.nmtrAPI.traceExport({ sessionId, format })
     } catch (err) {
@@ -44,6 +44,12 @@ export function ExportMenu({ sessionId }: ExportMenuProps): React.JSX.Element {
             onSelect={() => handleExport('html')}
           >
             Save as HTML
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            className="px-3 py-2 text-fg-default hover:bg-slate-700 cursor-pointer outline-none"
+            onSelect={() => handleExport('json')}
+          >
+            Save as JSON
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
