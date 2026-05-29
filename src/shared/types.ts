@@ -81,6 +81,12 @@ export interface TraceSession {
 
 // ─── App settings ─────────────────────────────────────────────────────────────
 
+/** A user-managed DNS resolver entry shown in the DNS Resolver view dropdown. */
+export interface DnsResolverPreset {
+  label: string
+  value: string // resolver IP address
+}
+
 export interface AppSettings {
   theme: Theme
   defaultProtocol: Protocol
@@ -99,7 +105,16 @@ export interface AppSettings {
   turnServerUri: string
   turnServerUser: string
   turnServerPass: string
+  // DNS Resolver view — user-managed list of resolver presets (seeded with public ones).
+  dnsResolvers: DnsResolverPreset[]
 }
+
+/** Default DNS resolver presets shown in the DNS Resolver view. */
+export const DEFAULT_DNS_RESOLVERS: DnsResolverPreset[] = [
+  { label: 'Cloudflare (1.1.1.1)', value: '1.1.1.1' },
+  { label: 'Google (8.8.8.8)', value: '8.8.8.8' },
+  { label: 'Quad9 (9.9.9.9)', value: '9.9.9.9' }
+]
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
@@ -117,7 +132,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   alertCooldownSec: 30,
   turnServerUri: '',
   turnServerUser: '',
-  turnServerPass: ''
+  turnServerPass: '',
+  dnsResolvers: DEFAULT_DNS_RESOLVERS
 }
 
 // ─── Recording / Playback ─────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import {
   ChevronDown, Clock, Server, History, Trash2, X, Eye, ShieldCheck
 } from 'lucide-react'
 import { useUIStore } from '../../store/useUIStore'
+import { useSettingsStore } from '../../store/useSettingsStore'
 import {
   DnssecBadge, DiffStrip, CopyCommandMenu, DnsDiagnostics
 } from './DnsDiagnosticsPanels'
@@ -25,13 +26,9 @@ const WATCH_INTERVALS: { label: string; ms: number }[] = [
   { label: '60s', ms: 60_000 }
 ]
 
-// Resolver presets. '' = the OS-configured resolver.
-const RESOLVERS: { label: string; value: string }[] = [
-  { label: 'System default', value: '' },
-  { label: 'Cloudflare (1.1.1.1)', value: '1.1.1.1' },
-  { label: 'Google (8.8.8.8)', value: '8.8.8.8' },
-  { label: 'Quad9 (9.9.9.9)', value: '9.9.9.9' }
-]
+// '' = the OS-configured resolver, always offered first. The remaining presets
+// come from settings (managed in the "DNS List" settings tab).
+const SYSTEM_RESOLVER = { label: 'System default', value: '' }
 
 // Short blurb per record type, shown beside the type heading.
 const TYPE_BLURB: Record<DnsRecordType, string> = {
@@ -241,6 +238,8 @@ function HistoryTable({
 export function DnsView(): React.JSX.Element {
   const prefill = useUIStore((s) => s.dnsPrefill)
   const clearPrefill = useUIStore((s) => s.clearDnsPrefill)
+  const dnsResolvers = useSettingsStore((s) => s.settings.dnsResolvers)
+  const resolverOptions = [SYSTEM_RESOLVER, ...dnsResolvers.filter((r) => r.value)]
 
   const [target, setTarget] = useState('')
   const [resolver, setResolver] = useState('')
@@ -360,8 +359,8 @@ export function DnsView(): React.JSX.Element {
             className="appearance-none pl-3 pr-8 py-1.5 text-base rounded-md bg-canvas-default border border-border-default text-fg-default focus:outline-none focus:border-accent-blue disabled:opacity-60"
             title="DNS resolver"
           >
-            {RESOLVERS.map((r) => (
-              <option key={r.value} value={r.value}>{r.label}</option>
+            {resolverOptions.map((r) => (
+              <option key={r.value || 'system'} value={r.value}>{r.label}</option>
             ))}
           </select>
           <ChevronDown className="w-4 h-4 text-fg-subtle absolute right-2 pointer-events-none" />

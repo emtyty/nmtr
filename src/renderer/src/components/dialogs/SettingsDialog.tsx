@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
+import { Plus, Trash2, RotateCcw, Server } from 'lucide-react'
 import { useSettingsStore } from '../../store/useSettingsStore'
-import type { AppSettings, Theme, Protocol } from '@shared/types'
+import type { AppSettings, Theme, Protocol, DnsResolverPreset } from '@shared/types'
+import { DEFAULT_DNS_RESOLVERS } from '@shared/types'
 
 interface SettingsDialogProps {
   open: boolean
@@ -11,7 +13,7 @@ interface SettingsDialogProps {
 export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JSX.Element {
   const { settings, update } = useSettingsStore()
   const [draft, setDraft] = useState<AppSettings>(settings)
-  const [tab, setTab] = useState<'general' | 'turn'>('general')
+  const [tab, setTab] = useState<'general' | 'dns' | 'turn'>('general')
 
   useEffect(() => {
     if (open) {
@@ -21,12 +23,36 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
   }, [open])
 
   async function handleSave(): Promise<void> {
-    await update(draft)
+    // Drop incomplete resolver rows (blank name or IP) before persisting.
+    const cleaned: AppSettings = {
+      ...draft,
+      dnsResolvers: draft.dnsResolvers
+        .map((r) => ({ label: r.label.trim(), value: r.value.trim() }))
+        .filter((r) => r.label && r.value)
+    }
+    await update(cleaned)
     onClose()
   }
 
   function setProp<K extends keyof AppSettings>(key: K, value: AppSettings[K]): void {
     setDraft((d) => ({ ...d, [key]: value }))
+  }
+
+  // ── DNS resolver list helpers ──
+  function setResolvers(resolvers: DnsResolverPreset[]): void {
+    setProp('dnsResolvers', resolvers)
+  }
+  function updateResolver(index: number, patch: Partial<DnsResolverPreset>): void {
+    setResolvers(draft.dnsResolvers.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+  }
+  function removeResolver(index: number): void {
+    setResolvers(draft.dnsResolvers.filter((_, i) => i !== index))
+  }
+  function addResolver(): void {
+    setResolvers([...draft.dnsResolvers, { label: '', value: '' }])
+  }
+  function resetResolvers(): void {
+    setResolvers(DEFAULT_DNS_RESOLVERS)
   }
 
   return (
@@ -43,7 +69,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
 
           {/* Tab bar */}
           <div className="flex border-b border-border-default px-2">
-            {([['general', 'General'], ['turn', 'TURN']] as const).map(([id, label]) => (
+            {([['general', 'General'], ['dns', 'DNS List'], ['turn', 'TURN']] as const).map(([id, label]) => (
               <button
                 key={id}
                 onClick={() => setTab(id)}
@@ -211,6 +237,66 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
                 />
               </div>
             </div>
+          </div>
+
+          {/* DNS List tab */}
+          <div className={`flex-1 overflow-auto p-4 space-y-3 ${tab === 'dns' ? '' : 'hidden'}`}>
+            <p className="text-xs text-fg-muted leading-relaxed">
+              DNS resolvers offered in the <span className="text-fg-default font-medium">DNS Resolver</span> view dropdown.
+              <span className="text-fg-default font-medium"> System default</span> is always available; add your own
+              servers below by IP address.
+            </p>
+
+            <div className="space-y-2">
+              {draft.dnsResolvers.length === 0 && (
+                <p className="text-xs text-fg-subtle italic py-2">No custom resolvers — only System default will be offered.</p>
+              )}
+              {draft.dnsResolvers.map((r, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Name (e.g. Cloudflare)"
+                    className="flex-1 min-w-0 bg-canvas-default border border-border-default rounded px-2.5 py-1.5 text-sm text-fg-default outline-none focus:border-accent-blue"
+                    value={r.label}
+                    onChange={(e) => updateResolver(i, { label: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    placeholder="IP (e.g. 1.1.1.1)"
+                    className="w-36 shrink-0 bg-canvas-default border border-border-default rounded px-2.5 py-1.5 text-sm text-fg-default outline-none focus:border-accent-blue font-mono"
+                    value={r.value}
+                    onChange={(e) => updateResolver(i, { value: e.target.value.trim() })}
+                  />
+                  <button
+                    onClick={() => removeResolver(i)}
+                    title="Remove resolver"
+                    className="shrink-0 p-1.5 rounded text-fg-subtle hover:text-accent-red hover:bg-canvas-hover transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={addResolver}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-border-default text-sm text-fg-muted hover:border-accent-blue hover:text-fg-default transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add resolver
+              </button>
+              <button
+                onClick={resetResolvers}
+                title="Restore the default public resolvers"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-border-default text-sm text-fg-muted hover:border-fg-muted hover:text-fg-default transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reset to defaults
+              </button>
+            </div>
+
+            <p className="inline-flex items-center gap-1.5 text-xs text-fg-subtle pt-1">
+              <Server className="w-3.5 h-3.5" /> Entries with a blank name or IP are ignored.
+            </p>
           </div>
 
           {/* TURN tab */}
