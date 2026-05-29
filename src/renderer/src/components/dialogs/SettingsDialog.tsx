@@ -11,9 +11,13 @@ interface SettingsDialogProps {
 export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JSX.Element {
   const { settings, update } = useSettingsStore()
   const [draft, setDraft] = useState<AppSettings>(settings)
+  const [tab, setTab] = useState<'general' | 'turn'>('general')
 
   useEffect(() => {
-    if (open) setDraft(settings)
+    if (open) {
+      setDraft(settings)
+      setTab('general')
+    }
   }, [open])
 
   async function handleSave(): Promise<void> {
@@ -37,7 +41,24 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
             </Dialog.Close>
           </div>
 
-          <div className="flex-1 overflow-auto p-4 space-y-4">
+          {/* Tab bar */}
+          <div className="flex border-b border-border-default px-2">
+            {([['general', 'General'], ['turn', 'TURN']] as const).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  tab === id
+                    ? 'border-accent-blue text-fg-default'
+                    : 'border-transparent text-fg-muted hover:text-fg-default'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className={`flex-1 overflow-auto p-4 space-y-4 ${tab === 'general' ? '' : 'hidden'}`}>
             {/* Theme */}
             <div>
               <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
@@ -189,6 +210,55 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
                   onChange={(e) => setProp('alertCooldownSec', Math.min(600, Math.max(5, Number(e.target.value))))}
                 />
               </div>
+            </div>
+          </div>
+
+          {/* TURN tab */}
+          <div className={`flex-1 overflow-auto p-4 space-y-4 ${tab === 'turn' ? '' : 'hidden'}`}>
+            <p className="text-xs text-fg-muted leading-relaxed">
+              TURN relay used by the Speed Test for the <span className="text-fg-default font-medium">packet-loss</span> measurement.
+              Leave blank to disable packet loss (download, upload, ping and jitter still work).
+              Get free credentials from Metered.ca, Cloudflare Realtime, or a self-hosted coturn.
+            </p>
+
+            <div>
+              <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
+                Server URI
+              </label>
+              <input
+                type="text"
+                placeholder="standard.relay.metered.ca:80"
+                className="w-full bg-canvas-default border border-border-default rounded px-3 py-1.5 text-base text-fg-default outline-none focus:border-accent-blue font-mono"
+                value={draft.turnServerUri}
+                onChange={(e) => setProp('turnServerUri', e.target.value)}
+              />
+              <p className="mt-1 text-xs text-fg-subtle">
+                Host:port only — no <code className="text-fg-muted">turn:</code> prefix.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
+                Username
+              </label>
+              <input
+                type="text"
+                className="w-full bg-canvas-default border border-border-default rounded px-3 py-1.5 text-base text-fg-default outline-none focus:border-accent-blue font-mono"
+                value={draft.turnServerUser}
+                onChange={(e) => setProp('turnServerUser', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
+                Credential
+              </label>
+              <input
+                type="password"
+                className="w-full bg-canvas-default border border-border-default rounded px-3 py-1.5 text-base text-fg-default outline-none focus:border-accent-blue font-mono"
+                value={draft.turnServerPass}
+                onChange={(e) => setProp('turnServerPass', e.target.value)}
+              />
             </div>
           </div>
 

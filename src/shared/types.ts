@@ -95,6 +95,10 @@ export interface AppSettings {
   alertLossPct: number
   alertRttMs: number
   alertCooldownSec: number
+  // Speed Test TURN relay (for packet-loss measurement). Empty = packet loss disabled.
+  turnServerUri: string
+  turnServerUser: string
+  turnServerPass: string
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -110,7 +114,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   alertsEnabled: false,
   alertLossPct: 20,
   alertRttMs: 200,
-  alertCooldownSec: 30
+  alertCooldownSec: 30,
+  turnServerUri: '',
+  turnServerUser: '',
+  turnServerPass: ''
 }
 
 // ─── Recording / Playback ─────────────────────────────────────────────────────

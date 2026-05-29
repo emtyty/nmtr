@@ -7,6 +7,7 @@ import { TraceView } from './components/trace/TraceView'
 import { TracertResultModal } from './components/trace/TracertResultModal'
 import { HistoryView } from './components/views/HistoryView'
 import { LanNetworkView } from './components/lan/LanNetworkView'
+import { SpeedTestView } from './components/views/SpeedTestView'
 import { useTraceSession } from './hooks/useTraceSession'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useSettingsStore } from './store/useSettingsStore'
@@ -39,6 +40,8 @@ export default function App(): React.JSX.Element {
           </>
         ) : activeView === 'lan' ? (
           <LanNetworkView />
+        ) : activeView === 'speedtest' ? (
+          <SpeedTestView />
         ) : (
           <HistoryView />
         )}
