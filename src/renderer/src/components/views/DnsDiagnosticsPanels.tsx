@@ -18,7 +18,7 @@ import type {
 } from '@shared/types'
 
 const menuItemCls =
-  'flex items-center gap-2 px-3 py-1.5 text-xs text-fg-default rounded cursor-pointer outline-none data-[highlighted]:bg-canvas-hover'
+  'flex items-center gap-2 px-3 py-1.5 text-sm text-fg-default rounded cursor-pointer outline-none data-[highlighted]:bg-canvas-hover'
 
 // ── Feature 1: DNSSEC badge ──────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ export function DnssecBadge({ dnssec }: { dnssec: DnssecInfo }): React.JSX.Eleme
   const s = DNSSEC_STYLE[dnssec.status]
   return (
     <span title={dnssec.detail}
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold cursor-help"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold cursor-help"
       style={{ color: s.color, background: s.color + '20' }}>
       <s.Icon className="w-3 h-3" />
       {s.label}
@@ -49,13 +49,13 @@ export function DiffStrip({ diff }: { diff: DnsDiff | null }): React.JSX.Element
   const when = new Date(diff.previousAt).toLocaleString()
   if (diff.changes.length === 0) {
     return (
-      <div className="px-5 py-2 border-b border-border-default bg-canvas-subtle flex-shrink-0 text-[11px] text-fg-subtle">
+      <div className="px-5 py-2 border-b border-border-default bg-canvas-subtle flex-shrink-0 text-[12px] text-fg-subtle">
         vs previous lookup {when}: <span className="text-fg-muted">no change</span>
       </div>
     )
   }
   return (
-    <div className="px-5 py-2 border-b border-border-default bg-canvas-subtle flex-shrink-0 flex items-center gap-3 flex-wrap text-[11px]">
+    <div className="px-5 py-2 border-b border-border-default bg-canvas-subtle flex-shrink-0 flex items-center gap-3 flex-wrap text-[12px]">
       <span className="text-fg-subtle">vs previous lookup {when}:</span>
       {diff.changes.map((c) => (
         <span key={c.type} className="inline-flex items-center gap-1.5">
@@ -129,7 +129,7 @@ const CHECK_STYLE: Record<DnsCheckStatus, { color: string; Icon: typeof Check }>
 function CheckPill({ status }: { status: DnsCheckStatus }): React.JSX.Element {
   const s = CHECK_STYLE[status]
   return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase"
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase"
       style={{ color: s.color, background: s.color + '20' }}>
       <s.Icon className="w-3 h-3" />{status}
     </span>
@@ -148,7 +148,7 @@ const TABS: { id: Tab; label: string; Icon: typeof Globe2 }[] = [
 ]
 
 const Spinner = (): React.JSX.Element => (
-  <div className="flex items-center gap-2 text-fg-muted text-sm py-8 justify-center">
+  <div className="flex items-center gap-2 text-fg-muted text-base py-8 justify-center">
     <Loader2 className="w-4 h-4 animate-spin" /> Running…
   </div>
 )
@@ -163,7 +163,7 @@ export function DnsDiagnostics({ result }: { result: DnsLookupResult }): React.J
         {TABS.map((t) => (
           <button key={t.id}
             onClick={() => setActive((cur) => (cur === t.id ? null : t.id))}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
               active === t.id
                 ? 'border-accent-blue/40 bg-accent-blue/10 text-accent-blue'
                 : 'border-border-default text-fg-muted hover:text-fg-default hover:bg-canvas-hover'
@@ -186,12 +186,12 @@ export function DnsDiagnostics({ result }: { result: DnsLookupResult }): React.J
 }
 
 function PanelNote({ text }: { text: string }): React.JSX.Element {
-  return <div className="text-sm text-fg-muted py-6 text-center">{text}</div>
+  return <div className="text-base text-fg-muted py-6 text-center">{text}</div>
 }
 
 function PanelError({ error }: { error: string }): React.JSX.Element {
   return (
-    <div className="p-3 bg-accent-red/10 border border-accent-red/30 rounded-lg flex items-start gap-2 text-accent-red text-sm">
+    <div className="p-3 bg-accent-red/10 border border-accent-red/30 rounded-lg flex items-start gap-2 text-accent-red text-base">
       <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> <span className="font-mono opacity-90">{error}</span>
     </div>
   )
@@ -220,17 +220,17 @@ function PropagationPanel({ name }: { name: string }): React.JSX.Element {
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[11px] text-fg-subtle">Compare</span>
+        <span className="text-[12px] text-fg-subtle">Compare</span>
         <div className="relative inline-flex items-center">
           <select value={type} onChange={(e) => onType(e.target.value as DnsRecordType)}
-            className="appearance-none pl-2.5 pr-7 py-1 text-xs rounded-md bg-canvas-default border border-border-default text-fg-default focus:outline-none focus:border-accent-blue">
+            className="appearance-none pl-2.5 pr-7 py-1 text-sm rounded-md bg-canvas-default border border-border-default text-fg-default focus:outline-none focus:border-accent-blue">
             {PROP_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-fg-subtle absolute right-2 pointer-events-none" />
         </div>
-        <span className="text-[11px] text-fg-subtle">across public resolvers</span>
+        <span className="text-[12px] text-fg-subtle">across public resolvers</span>
         {data && (
-          <span className={`ml-2 text-[11px] font-semibold ${data.consistent ? 'text-accent-green' : 'text-accent-red'}`}>
+          <span className={`ml-2 text-[12px] font-semibold ${data.consistent ? 'text-accent-green' : 'text-accent-red'}`}>
             {data.consistent ? '✓ consistent' : '✗ mismatch detected'}
           </span>
         )}
@@ -238,7 +238,7 @@ function PropagationPanel({ name }: { name: string }): React.JSX.Element {
       {loading && <Spinner />}
       {data && (
         <div className="border border-border-default rounded-lg overflow-hidden">
-          <table className="w-full text-[12px]">
+          <table className="w-full text-[13px]">
             <thead className="bg-canvas-inset">
               <tr className="text-fg-subtle text-left border-b border-border-muted">
                 <th className="px-3 py-2 font-semibold w-36">Resolver</th>
@@ -272,12 +272,12 @@ function EmailRow({ label, check }: { label: string; check: DnsEmailCheck }): Re
   return (
     <div className="flex items-start gap-3 px-3 py-2 border-b border-border-muted/40 last:border-0">
       <div className="w-20 shrink-0 flex items-center gap-2">
-        <span className="text-xs font-semibold text-fg-default">{label}</span>
+        <span className="text-sm font-semibold text-fg-default">{label}</span>
       </div>
       <CheckPill status={check.status} />
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-fg-muted">{check.note}</p>
-        {check.value && <p className="text-[11px] font-mono text-fg-subtle break-all mt-0.5">{check.value}</p>}
+        <p className="text-[12px] text-fg-muted">{check.note}</p>
+        {check.value && <p className="text-[12px] font-mono text-fg-subtle break-all mt-0.5">{check.value}</p>}
       </div>
     </div>
   )
@@ -303,23 +303,23 @@ function EmailPanel({ domain, resolver }: { domain: string; resolver: string }):
       <EmailRow label="MTA-STS" check={data.mtaSts} />
       <EmailRow label="BIMI" check={data.bimi} />
       <div className="flex items-start gap-3 px-3 py-2">
-        <div className="w-20 shrink-0"><span className="text-xs font-semibold text-fg-default">DKIM</span></div>
+        <div className="w-20 shrink-0"><span className="text-sm font-semibold text-fg-default">DKIM</span></div>
         <CheckPill status={data.dkim.length ? 'pass' : 'none'} />
         <div className="flex-1 min-w-0">
           {data.dkim.length ? (
             <div className="space-y-1">
               {data.dkim.map((d) => (
-                <p key={d.selector} className="text-[11px] font-mono text-fg-muted break-all">
+                <p key={d.selector} className="text-[12px] font-mono text-fg-muted break-all">
                   <span className="text-accent-blue">{d.selector}</span>: {d.value.length > 80 ? d.value.slice(0, 80) + '…' : d.value}
                 </p>
               ))}
             </div>
           ) : (
-            <p className="text-[11px] text-fg-muted">
+            <p className="text-[12px] text-fg-muted">
               No DKIM key found among common selectors. DKIM uses arbitrary selectors, so a missing result here doesn't prove DKIM is unconfigured.
             </p>
           )}
-          <p className="text-[10px] text-fg-subtle mt-1">Probed: {data.dkimChecked.join(', ')}</p>
+          <p className="text-[11px] text-fg-subtle mt-1">Probed: {data.dkimChecked.join(', ')}</p>
         </div>
       </div>
     </div>
@@ -349,7 +349,7 @@ function FcrdnsPanel({ result }: { result: DnsLookupResult }): React.JSX.Element
 
   return (
     <div className="border border-border-default rounded-lg overflow-hidden">
-      <table className="w-full text-[12px]">
+      <table className="w-full text-[13px]">
         <thead className="bg-canvas-inset">
           <tr className="text-fg-subtle text-left border-b border-border-muted">
             <th className="px-3 py-2 font-semibold w-44">IP</th>
@@ -397,25 +397,25 @@ function DelegationPanel({ name }: { name: string }): React.JSX.Element {
     <div className="space-y-2">
       {data.steps.map((step, i) => (
         <div key={i} className="border border-border-default rounded-lg p-3 bg-canvas-inset">
-          <div className="flex items-center gap-2 mb-1 text-[11px]">
+          <div className="flex items-center gap-2 mb-1 text-[12px]">
             <span className="font-mono font-semibold text-accent-blue">#{i + 1}</span>
             <span className="text-fg-muted">queried</span>
             <span className="font-mono text-fg-default">{step.serverName ? `${step.serverName} ` : ''}({step.serverQueried})</span>
             {step.authoritative && (
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-accent-green/15 text-accent-green">AUTHORITATIVE</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent-green/15 text-accent-green">AUTHORITATIVE</span>
             )}
             <span className="ml-auto font-mono text-fg-subtle">{step.rttMs}ms</span>
           </div>
           {step.error ? (
-            <p className="text-[11px] text-accent-red font-mono">{step.error}</p>
+            <p className="text-[12px] text-accent-red font-mono">{step.error}</p>
           ) : step.nsRecords.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {step.nsRecords.map((ns) => (
-                <span key={ns} className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-canvas-subtle text-fg-muted">{ns}</span>
+                <span key={ns} className="px-1.5 py-0.5 rounded text-[11px] font-mono bg-canvas-subtle text-fg-muted">{ns}</span>
               ))}
             </div>
           ) : (
-            <p className="text-[11px] text-fg-subtle">No NS records returned.</p>
+            <p className="text-[12px] text-fg-subtle">No NS records returned.</p>
           )}
         </div>
       ))}

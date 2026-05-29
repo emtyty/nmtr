@@ -50,7 +50,7 @@ const TYPE_BLURB: Record<DnsRecordType, string> = {
 }
 
 const menuItemCls =
-  'flex items-center gap-2 px-3 py-1.5 text-xs text-fg-default rounded cursor-pointer outline-none data-[highlighted]:bg-canvas-hover'
+  'flex items-center gap-2 px-3 py-1.5 text-sm text-fg-default rounded cursor-pointer outline-none data-[highlighted]:bg-canvas-hover'
 
 function formatTtl(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
@@ -120,18 +120,18 @@ function RecordSetCard({ set }: { set: DnsRecordSet }): React.JSX.Element {
   return (
     <div className="border border-border-default rounded-lg overflow-hidden bg-canvas-inset">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border-muted bg-canvas-subtle">
-        <span className="font-mono text-sm font-semibold text-accent-blue w-16">{set.type}</span>
-        <span className="text-[11px] text-fg-subtle flex-1 truncate">{TYPE_BLURB[set.type]}</span>
+        <span className="font-mono text-base font-semibold text-accent-blue w-16">{set.type}</span>
+        <span className="text-[12px] text-fg-subtle flex-1 truncate">{TYPE_BLURB[set.type]}</span>
         {has ? (
-          <span className="text-[11px] font-mono text-accent-green">{set.records.length}</span>
+          <span className="text-[12px] font-mono text-accent-green">{set.records.length}</span>
         ) : (
-          <span className={`text-[11px] font-mono ${set.error ? 'text-accent-red' : 'text-fg-subtle'}`}>
+          <span className={`text-[12px] font-mono ${set.error ? 'text-accent-red' : 'text-fg-subtle'}`}>
             {statusNote}
           </span>
         )}
       </div>
       {has && (
-        <table className="w-full text-[12px]">
+        <table className="w-full text-[13px]">
           <tbody>
             {set.records.map((r, i) => (
               <tr key={i} className="border-b border-border-muted/40 last:border-0 hover:bg-canvas-hover/50 group">
@@ -171,15 +171,15 @@ function HistoryTable({
     <div className="mt-6 border-t border-border-default pt-4">
       <div className="flex items-center gap-2 mb-2 px-1">
         <History className="w-3.5 h-3.5 text-fg-subtle" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">Lookup history</span>
-        <span className="text-[11px] font-mono text-fg-subtle">{history.length}</span>
+        <span className="text-[12px] font-semibold uppercase tracking-wide text-fg-subtle">Lookup history</span>
+        <span className="text-[12px] font-mono text-fg-subtle">{history.length}</span>
         <button onClick={onClear}
-          className="ml-auto inline-flex items-center gap-1 text-[11px] text-fg-subtle hover:text-accent-red transition-colors">
+          className="ml-auto inline-flex items-center gap-1 text-[12px] text-fg-subtle hover:text-accent-red transition-colors">
           <Trash2 className="w-3.5 h-3.5" /> Clear
         </button>
       </div>
       <div className="border border-border-default rounded-lg overflow-hidden">
-        <table className="w-full text-[12px]">
+        <table className="w-full text-[13px]">
           <thead className="bg-canvas-inset">
             <tr className="text-fg-subtle text-left border-b border-border-muted">
               <th className="px-3 py-2 font-semibold">When</th>
@@ -213,7 +213,7 @@ function HistoryTable({
                       <span className="text-fg-subtle">—</span>
                     ) : rec.typeCounts.map((t) => (
                       <span key={t.type}
-                        className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-accent-blue/10 text-accent-blue">
+                        className="px-1.5 py-0.5 rounded text-[11px] font-mono font-semibold bg-accent-blue/10 text-accent-blue">
                         {t.type}{t.count > 1 ? `·${t.count}` : ''}
                       </span>
                     ))}
@@ -349,7 +349,7 @@ export function DnsView(): React.JSX.Element {
           placeholder="Hostname or IP (e.g. example.com)"
           spellCheck={false}
           disabled={resolving}
-          className="flex-1 min-w-[200px] px-3 py-1.5 text-sm font-mono rounded-md bg-canvas-default border border-border-default text-fg-default placeholder:text-fg-subtle focus:outline-none focus:border-accent-blue disabled:opacity-60"
+          className="flex-1 min-w-[200px] px-3 py-1.5 text-base font-mono rounded-md bg-canvas-default border border-border-default text-fg-default placeholder:text-fg-subtle focus:outline-none focus:border-accent-blue disabled:opacity-60"
         />
 
         <div className="relative inline-flex items-center">
@@ -357,7 +357,7 @@ export function DnsView(): React.JSX.Element {
             value={resolver}
             onChange={(e) => setResolver(e.target.value)}
             disabled={resolving}
-            className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-md bg-canvas-default border border-border-default text-fg-default focus:outline-none focus:border-accent-blue disabled:opacity-60"
+            className="appearance-none pl-3 pr-8 py-1.5 text-base rounded-md bg-canvas-default border border-border-default text-fg-default focus:outline-none focus:border-accent-blue disabled:opacity-60"
             title="DNS resolver"
           >
             {RESOLVERS.map((r) => (
@@ -370,7 +370,7 @@ export function DnsView(): React.JSX.Element {
         {/* Authoritative toggle — query the zone's own NS instead of a recursive cache */}
         <button onClick={() => setAuthoritative((v) => !v)} disabled={resolving}
           title="Query the zone's authoritative name servers directly (bypasses recursive cache)"
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors disabled:opacity-60 ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-md border transition-colors disabled:opacity-60 ${
             authoritative ? 'border-accent-blue/40 bg-accent-blue/10 text-accent-blue' : 'border-border-default text-fg-muted hover:text-fg-default'
           }`}>
           <ShieldCheck className="w-3.5 h-3.5" /> Authoritative
@@ -382,7 +382,7 @@ export function DnsView(): React.JSX.Element {
             value={watchMs}
             onChange={(e) => setWatchMs(Number(e.target.value))}
             title="Auto-refresh interval"
-            className={`appearance-none pl-7 pr-7 py-1.5 text-xs rounded-md bg-canvas-default border focus:outline-none ${
+            className={`appearance-none pl-7 pr-7 py-1.5 text-sm rounded-md bg-canvas-default border focus:outline-none ${
               watchMs > 0 ? 'border-accent-green/40 text-accent-green' : 'border-border-default text-fg-muted'
             }`}
           >
@@ -394,7 +394,7 @@ export function DnsView(): React.JSX.Element {
         </div>
 
         <button onClick={() => runLookup()} disabled={!target.trim() || resolving}
-          className="ml-auto inline-flex items-center gap-2 px-4 py-1.5 text-sm font-semibold rounded-md bg-accent-blue text-canvas-default hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
+          className="ml-auto inline-flex items-center gap-2 px-4 py-1.5 text-base font-semibold rounded-md bg-accent-blue text-canvas-default hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
           {resolving
             ? <><RefreshCw className="w-4 h-4 animate-spin" /> Resolving…</>
             : result
@@ -407,7 +407,7 @@ export function DnsView(): React.JSX.Element {
       {error && (
         <div className="mx-5 mt-4 p-3 bg-accent-red/10 border border-accent-red/30 rounded-lg flex items-start gap-3 text-accent-red">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-          <p className="text-sm font-mono opacity-90">{error}</p>
+          <p className="text-base font-mono opacity-90">{error}</p>
         </div>
       )}
 
@@ -417,9 +417,9 @@ export function DnsView(): React.JSX.Element {
           <div className="flex flex-col items-center justify-center gap-4 text-center px-6 py-16">
             <Globe className="w-16 h-16 text-fg-subtle opacity-40" />
             <div>
-              <p className="text-fg-subtle text-base font-medium mb-1">DNS Resolver</p>
-              <p className="text-fg-muted text-sm">Enter a hostname or IP to resolve every record type in one scan</p>
-              <p className="text-fg-subtle text-xs mt-1 font-mono">A · AAAA · CNAME · MX · NS · PTR · SRV · SOA · TXT · CAA · DS · DNSKEY</p>
+              <p className="text-fg-subtle text-lg font-medium mb-1">DNS Resolver</p>
+              <p className="text-fg-muted text-base">Enter a hostname or IP to resolve every record type in one scan</p>
+              <p className="text-fg-subtle text-sm mt-1 font-mono">A · AAAA · CNAME · MX · NS · PTR · SRV · SOA · TXT · CAA · DS · DNSKEY</p>
             </div>
           </div>
           <div className="px-5 pb-5">
@@ -432,7 +432,7 @@ export function DnsView(): React.JSX.Element {
       {result && (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Summary bar */}
-          <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border-default bg-canvas-inset flex-shrink-0 flex-wrap text-[11px]">
+          <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border-default bg-canvas-inset flex-shrink-0 flex-wrap text-[12px]">
             <span className="inline-flex items-center gap-1.5 font-semibold text-fg-default">
               <Globe className="w-3.5 h-3.5 text-accent-blue" />
               {result.target}
@@ -444,7 +444,7 @@ export function DnsView(): React.JSX.Element {
               <Server className="w-3.5 h-3.5" /> {result.resolver}
             </span>
             {result.authoritative && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent-green/15 text-accent-green" title="Answer came from an authoritative name server (AA flag)">
+              <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-accent-green/15 text-accent-green" title="Answer came from an authoritative name server (AA flag)">
                 authoritative
               </span>
             )}
@@ -455,7 +455,7 @@ export function DnsView(): React.JSX.Element {
               <span>{(result.durationMs / 1000).toFixed(2)}s</span>
             </div>
 
-            <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer select-none">
+            <label className="flex items-center gap-1.5 text-sm text-fg-muted cursor-pointer select-none">
               <input type="checkbox" checked={hideEmpty} onChange={(e) => setHideEmpty(e.target.checked)}
                 className="accent-accent-blue" />
               Hide empty types
@@ -495,7 +495,7 @@ export function DnsView(): React.JSX.Element {
           <div className="flex-1 overflow-y-auto p-5">
             {visibleSets.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 text-fg-muted py-12">
-                <p className="text-sm">No records found for any type</p>
+                <p className="text-base">No records found for any type</p>
               </div>
             ) : (
               <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(340px,1fr))]">
