@@ -41,6 +41,15 @@ import type {
   DnsFcrdnsResult,
   DnsDelegationPayload,
   DnsDelegationResult,
+  SslResolvePayload,
+  SslResolveResult,
+  SslScanStartPayload,
+  SslScanStartResult,
+  SslScanCancelPayload,
+  SslExportPayload,
+  SslScanRecord,
+  SslScanProgressEvent,
+  SslScanDoneEvent,
   OpenExternalPayload,
   HopUpdateEvent,
   HopsBatchEvent,
@@ -142,6 +151,26 @@ const nmtrAPI = {
     ipcRenderer.invoke(IPC.DNS_FCRDNS, payload),
   dnsDelegation: (payload: DnsDelegationPayload): Promise<DnsDelegationResult> =>
     ipcRenderer.invoke(IPC.DNS_DELEGATION, payload),
+
+  // ── SSL scan ──────────────────────────────────────────────────────────────────
+  sslResolve: (payload: SslResolvePayload): Promise<SslResolveResult> =>
+    ipcRenderer.invoke(IPC.SSL_RESOLVE, payload),
+  sslScanStart: (payload: SslScanStartPayload): Promise<SslScanStartResult> =>
+    ipcRenderer.invoke(IPC.SSL_SCAN_START, payload),
+  sslScanCancel: (payload: SslScanCancelPayload): Promise<void> =>
+    ipcRenderer.invoke(IPC.SSL_SCAN_CANCEL, payload),
+  sslExport: (payload: SslExportPayload): Promise<ExportResult> =>
+    ipcRenderer.invoke(IPC.SSL_EXPORT, payload),
+  sslHistoryGet: (): Promise<SslScanRecord[]> =>
+    ipcRenderer.invoke(IPC.SSL_HISTORY_GET),
+  sslHistoryClear: (): Promise<void> =>
+    ipcRenderer.invoke(IPC.SSL_HISTORY_CLEAR),
+  sslHistoryRemove: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.SSL_HISTORY_REMOVE, id),
+  onSslProgress: (cb: (e: SslScanProgressEvent) => void): Unsubscribe =>
+    on(IPC.SSL_PROGRESS, cb),
+  onSslDone: (cb: (e: SslScanDoneEvent) => void): Unsubscribe =>
+    on(IPC.SSL_DONE, cb),
 
   // ── Shell ────────────────────────────────────────────────────────────────────
   openExternal: (payload: OpenExternalPayload): Promise<void> =>

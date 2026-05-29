@@ -26,6 +26,7 @@ A modern rewrite of WinMTR as an Electron desktop application for Windows. Combi
 - **Pause/resume live traces** — pause and resume active traces without losing session state
 - **History filter/sort/rerun** — filter and sort trace history, rerun any previous session with one click
 - **SLO alerting** — configurable alert thresholds for packet loss, RTT, and jitter; live alert stack (bottom right), desktop notifications, and alert history
+- **SSL scan** — SSL Labs–style TLS audit: resolve a host to its IP endpoints, pick one, then probe every protocol version (SSLv3→TLS 1.3) and enumerate supported cipher suites, inspect the certificate + chain, verify trust and hostname, flag weak/insecure ciphers and protocols, and compute an A+→F grade; scan history with delete, rescan, and diff-vs-previous. Pure-Node `tls` engine — works offline and against internal IPs, no data leaves the machine
 
 ## Requirements
 
@@ -75,6 +76,7 @@ src/
 ├── main/                # Electron main process
 │   ├── ipc/             # IPC channel constants + request handlers
 │   ├── prober/          # ProberSession, StatsAggregator, NativeEngine (ICMP FFI), PingusEngine
+│   ├── ssl/             # SslResolver (host → IP endpoints) + SslAnalyzer (pure-Node TLS audit)
 │   ├── enrichment/      # GeoIP (geojs.io over HTTPS, LRU-cached) + WHOIS fetcher
 │   ├── recording/       # Session recorder + player (.nmtr NDJSON format)
 │   ├── export/          # Text / CSV / HTML formatters
@@ -93,7 +95,7 @@ src/
     │   ├── playback/    # Playback bar
     │   ├── trace/       # HopTable, SessionRttChart, RouteEventsPanel
     │   ├── update/      # Update banner
-    │   └── views/       # HistoryView
+    │   └── views/       # HistoryView, DnsView, PortScanView, SpeedTestView, SslView (+ SslResultPanels)
     ├── lib/             # Utilities (scrollGate — hop-table scroll locking)
     └── hooks/           # useTraceSession (IPC → store), useKeyboardShortcuts, useUpdater
 ```
@@ -134,6 +136,7 @@ src/
 - **HTTPS-only geo enrichment** — GeoIP lookups use `https://get.geojs.io` to prevent cleartext IP leaks / MITM
 - **Input validation** — traceroute targets validated against hostname/IPv4 regex before `spawn('tracert', ...)`
 - **Safe subprocess spawning** — all LAN scanner subprocesses (`ping`, `nslookup`, `nbtstat`) use `spawn()` with argv arrays (no shell interpolation) plus IP format validation
+- **Local-only SSL scanning** — the SSL scan runs entirely in the main process via Node's `tls` module; no certificate, hostname, or scan data is sent to any third-party service (unlike hosted SSL test sites)
 
 ## License
 

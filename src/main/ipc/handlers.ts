@@ -16,6 +16,10 @@ import { resolveDns } from '../dns/DnsResolver'
 import { checkPropagation, checkEmailSecurity, checkFcrdns, traceDelegation } from '../dns/DnsDiagnostics'
 import { formatDnsExport } from '../export/DnsExportFormatter'
 import { DnsStore } from '../store/DnsStore'
+import { resolveEndpoints } from '../ssl/SslResolver'
+import { startSslScan, cancelSslScan } from '../ssl/SslAnalyzer'
+import { SslStore } from '../store/SslStore'
+import { formatSslExport } from '../export/SslExportFormatter'
 import type { TrayManager } from '../tray/TrayManager'
 import type {
   TraceStartPayload,
@@ -39,6 +43,10 @@ import type {
   DnsEmailPayload,
   DnsFcrdnsPayload,
   DnsDelegationPayload,
+  SslResolvePayload,
+  SslScanStartPayload,
+  SslScanCancelPayload,
+  SslExportPayload,
   OpenExternalPayload
 } from '../../shared/types'
 
@@ -338,6 +346,52 @@ export function registerHandlers(win: BrowserWindow): void {
 
   ipcMain.handle(IPC.DNS_HISTORY_REMOVE, (_e, id: string) => {
     DnsStore.remove(id)
+  })
+
+  // ── SSL scan ────────────────────────────────────────────────────────────
+  ipcMain.handle(IPC.SSL_RESOLVE, async (_e, payload: SslResolvePayload) => {
+    return await resolveEndpoints(payload.config)
+  })
+
+  ipcMain.handle(IPC.SSL_SCAN_START, async (_e, payload: SslScanStartPayload) => {
+    const { randomUUID } = await import('crypto')
+    const scanId = randomUUID()
+    // Fire-and-forget: results stream back via SSL_PROGRESS / SSL_DONE.
+    void startSslScan(scanId, payload.config, win)
+    return { scanId }
+  })
+
+  ipcMain.handle(IPC.SSL_SCAN_CANCEL, async (_e, payload: SslScanCancelPayload) => {
+    cancelSslScan(payload.scanId)
+  })
+
+  ipcMain.handle(IPC.SSL_HISTORY_GET, () => {
+    return SslStore.getAll()
+  })
+
+  ipcMain.handle(IPC.SSL_HISTORY_CLEAR, () => {
+    SslStore.clear()
+  })
+
+  ipcMain.handle(IPC.SSL_HISTORY_REMOVE, (_e, id: string) => {
+    SslStore.remove(id)
+  })
+
+  ipcMain.handle(IPC.SSL_EXPORT, async (_e, payload: SslExportPayload) => {
+    const result = formatSslExport(payload.result, payload.format)
+    if (payload.format === 'text') {
+      clipboard.writeText(result.content)
+      return result
+    }
+    const { filePath } = await dialog.showSaveDialog(win!, {
+      defaultPath: result.suggestedFilename,
+      filters: [{ name: result.mimeType, extensions: [result.suggestedFilename.split('.').pop()!] }]
+    })
+    if (filePath) {
+      const { writeFileSync } = await import('fs')
+      writeFileSync(filePath, result.content, 'utf8')
+    }
+    return result
   })
 
   // ── Shell ──────────────────────────────────────────────────────────────

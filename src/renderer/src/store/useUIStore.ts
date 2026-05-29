@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { TracertResultEvent } from '@shared/types'
 
-export type NavView = 'traces' | 'history' | 'lan' | 'speedtest' | 'portscan' | 'dns'
+export type NavView = 'traces' | 'history' | 'lan' | 'speedtest' | 'portscan' | 'dns' | 'ssl'
 
 export interface RuntimeAlert {
   id: string
@@ -30,6 +30,11 @@ interface UIState {
   dnsPrefill: string | null
   resolveDnsFor: (target: string) => void   // set prefill + switch to dns view
   clearDnsPrefill: () => void
+
+  // Pre-fill the SSL view host from elsewhere. Consumed (cleared) by SslView.
+  sslPrefill: string | null
+  scanSslFor: (host: string) => void        // set prefill + switch to ssl view
+  clearSslPrefill: () => void
 
   // Global WHOIS dialog (so any view can trigger it).
   whoisIp: string | null
@@ -76,6 +81,10 @@ export const useUIStore = create<UIState>((set) => ({
   dnsPrefill: null,
   resolveDnsFor: (target) => set({ dnsPrefill: target, activeView: 'dns' }),
   clearDnsPrefill: () => set({ dnsPrefill: null }),
+
+  sslPrefill: null,
+  scanSslFor: (host) => set({ sslPrefill: host, activeView: 'ssl' }),
+  clearSslPrefill: () => set({ sslPrefill: null }),
 
   whoisIp: null,
   openWhois: (ip) => set({ whoisIp: ip }),

@@ -67,6 +67,19 @@ export const IPC = {
   DNS_FCRDNS: 'dns:fcrdns',
   DNS_DELEGATION: 'dns:delegation',
 
+  // SSL scan (renderer → main invoke)
+  SSL_RESOLVE: 'ssl:resolve',         // host → list of IP endpoints
+  SSL_SCAN_START: 'ssl:scanStart',
+  SSL_SCAN_CANCEL: 'ssl:scanCancel',
+  SSL_EXPORT: 'ssl:export',
+  SSL_HISTORY_GET: 'ssl:historyGet',
+  SSL_HISTORY_CLEAR: 'ssl:historyClear',
+  SSL_HISTORY_REMOVE: 'ssl:historyRemove',
+
+  // SSL scan (main → renderer push)
+  SSL_PROGRESS: 'ssl:progress',
+  SSL_DONE: 'ssl:done',
+
   // Shell (renderer → main invoke)
   OPEN_EXTERNAL: 'shell:openExternal',
 

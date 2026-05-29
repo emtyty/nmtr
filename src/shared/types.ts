@@ -604,3 +604,161 @@ export interface PlaybackFrameEvent {
   frameIndex: number
   frameCount: number
 }
+
+// ─── SSL scan ────────────────────────────────────────────────────────────────
+
+/** One resolved IP endpoint for a host (the user picks which one to scan). */
+export interface SslEndpoint {
+  ip: string
+  family: 4 | 6
+}
+
+export interface SslResolveConfig {
+  host: string                   // hostname or IP literal from the input
+}
+export interface SslResolveResult {
+  host: string                   // normalised host (hostname or IP)
+  inputWasIp: boolean            // input was an IP literal → single endpoint, auto-scan
+  endpoints: SslEndpoint[]
+  error: string | null
+}
+
+export interface SslScanConfig {
+  host: string                   // SNI / name used for cert hostname validation
+  ip: string                     // the endpoint IP to connect to
+  port: number                   // default 443
+}
+
+export type TlsProtocol = 'SSLv3' | 'TLSv1.0' | 'TLSv1.1' | 'TLSv1.2' | 'TLSv1.3'
+/** `untested` = the local OpenSSL build can't even attempt this version (≠ server refusal). */
+export type TlsProtocolSupport = 'enabled' | 'disabled' | 'untested'
+export interface TlsProtocolResult {
+  protocol: TlsProtocol
+  support: TlsProtocolSupport
+  note: string | null
+}
+
+export type CipherStrength = 'strong' | 'weak' | 'insecure'
+export interface TlsCipher {
+  name: string                   // IANA name, e.g. TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+  opensslName: string            // OpenSSL name used to probe
+  protocol: TlsProtocol          // protocol it was negotiated under
+  bits: number | null            // symmetric key size
+  forwardSecrecy: boolean
+  strength: CipherStrength
+  note: string | null            // why weak/insecure
+}
+
+export interface SslCertificate {
+  subject: string                // CN
+  subjectAltNames: string[]
+  issuer: string
+  serialNumber: string
+  validFrom: string              // ISO
+  validTo: string                // ISO
+  daysRemaining: number
+  expired: boolean
+  notYetValid: boolean
+  keyType: string                // "RSA" | "EC" | …
+  keyBits: number | null
+  signatureAlgorithm: string
+  sha256Fingerprint: string
+  sha1Fingerprint: string
+  isCa: boolean
+  selfSigned: boolean
+}
+
+/** One link in the presented certificate chain. */
+export interface SslChainCert {
+  subject: string
+  issuer: string
+  keyType: string
+  keyBits: number | null
+  signatureAlgorithm: string
+  validTo: string                // ISO
+  expired: boolean
+}
+
+export type SslIssueSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
+export interface SslIssue {
+  severity: SslIssueSeverity
+  title: string
+  detail: string
+}
+
+/** SSL Labs–style grade. `T` = trust problem, `M` = hostname mismatch. */
+export type SslGrade = 'A+' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'T' | 'M'
+
+/** Change vs the previous scan of the same host+ip+port. */
+export interface SslDiff {
+  previousScanAt: number | null
+  gradeChanged: { from: SslGrade; to: SslGrade } | null
+  certChanged: boolean           // leaf SHA-256 fingerprint differs
+  protocolChanges: string[]      // human-readable notes, e.g. "TLSv1.0 now disabled"
+}
+
+export interface SslScanResult {
+  scanId: string
+  host: string
+  ip: string
+  port: number
+  grade: SslGrade
+  hostnameMatch: boolean
+  chainTrusted: boolean
+  trustError: string | null      // authorizationError reason, null when trusted
+  certificate: SslCertificate | null
+  chain: SslChainCert[]
+  protocols: TlsProtocolResult[]
+  ciphers: TlsCipher[]
+  negotiatedProtocol: TlsProtocol | null
+  negotiatedCipher: string | null
+  issues: SslIssue[]
+  diff: SslDiff | null
+  startedAt: number              // Date.now()
+  durationMs: number
+  error: string | null           // fatal error (couldn't connect at all), null otherwise
+}
+
+/** Persisted summary of a completed SSL scan (history + diffing). */
+export interface SslScanRecord {
+  id: string
+  host: string
+  ip: string
+  port: number
+  grade: SslGrade
+  scannedAt: number
+  durationMs: number
+  certSubject: string | null
+  certValidTo: string | null     // ISO
+  result: SslScanResult          // full result, so a history click restores it without rescanning
+}
+
+export interface SslResolvePayload {
+  config: SslResolveConfig
+}
+export interface SslScanStartPayload {
+  config: SslScanConfig
+}
+export interface SslScanStartResult {
+  scanId: string
+}
+export interface SslScanCancelPayload {
+  scanId: string
+}
+
+export type SslExportFormat = 'csv' | 'html' | 'json' | 'text'
+export interface SslExportPayload {
+  result: SslScanResult
+  format: SslExportFormat
+}
+
+// Main → renderer push events
+export interface SslScanProgressEvent {
+  scanId: string
+  percent: number | null         // 0–100, null if unknown
+  message: string | null         // status line, e.g. "Enumerating TLS 1.2 ciphers"
+}
+export interface SslScanDoneEvent {
+  scanId: string
+  result: SslScanResult
+}

@@ -10,6 +10,7 @@ import { LanNetworkView } from './components/lan/LanNetworkView'
 import { SpeedTestView } from './components/views/SpeedTestView'
 import { PortScanView } from './components/views/PortScanView'
 import { DnsView } from './components/views/DnsView'
+import { SslView } from './components/views/SslView'
 import { useTraceSession } from './hooks/useTraceSession'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useSettingsStore } from './store/useSettingsStore'
@@ -52,6 +53,8 @@ export default function App(): React.JSX.Element {
           <SpeedTestView />
         ) : activeView === 'dns' ? (
           <DnsView />
+        ) : activeView === 'ssl' ? (
+          <SslView />
         ) : (
           <HistoryView />
         )}
