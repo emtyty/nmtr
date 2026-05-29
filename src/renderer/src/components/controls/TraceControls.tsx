@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useTraceStore } from '../../store/useTraceStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useRecordingStore } from '../../store/useRecordingStore'
+import { useUIStore } from '../../store/useUIStore'
 import type { TraceConfig } from '@shared/types'
 
 interface TraceControlsProps {
@@ -23,11 +24,22 @@ export function TraceControls({ sessionId }: TraceControlsProps): React.JSX.Elem
   const isPaused = session?.status === 'paused'
   const isThisSessionRecording = isRecording && recordingSessionId === sessionId
 
+  const tracePrefill = useUIStore((s) => s.tracePrefill)
+  const clearTracePrefill = useUIStore((s) => s.clearTracePrefill)
+
   useEffect(() => {
     if (!isRunning && !isPaused) {
       setUseIPv6(settings.defaultUseIPv6)
     }
   }, [settings.defaultUseIPv6, isRunning, isPaused])
+
+  // Consume a target handed off from another view (e.g. a port-scan row action).
+  useEffect(() => {
+    if (tracePrefill && !isRunning && !isPaused) {
+      setTarget(tracePrefill)
+      clearTracePrefill()
+    }
+  }, [tracePrefill, isRunning, isPaused, clearTracePrefill])
 
   async function handleStart(): Promise<void> {
     if (!target.trim()) return

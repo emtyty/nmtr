@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import type { LanScanResult, LanDevice, NetworkInterface, DeviceType } from '@shared/types'
+import { useUIStore } from '../../store/useUIStore'
 
 // ── Topology layout constants ────────────────────────────────────────────────
 
@@ -295,6 +296,7 @@ export function LanNetworkView(): React.JSX.Element {
   const [hovered, setHovered] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(900)
+  const scanPortsFor = useUIStore((s) => s.scanPortsFor)
 
   useEffect(() => {
     const el = containerRef.current
@@ -687,6 +689,7 @@ export function LanNetworkView(): React.JSX.Element {
                 <th className="px-4 py-1.5 font-semibold">MAC Address</th>
                 <th className="px-4 py-1.5 font-semibold">Vendor</th>
                 <th className="px-4 py-1.5 font-semibold">Role</th>
+                <th className="px-4 py-1.5 font-semibold w-20"></th>
               </tr>
             </thead>
             <tbody>
@@ -730,6 +733,14 @@ export function LanNetworkView(): React.JSX.Element {
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold"
                           style={{ color: '#34d399', background: '#34d39920' }}>This PC</span>
                       )}
+                    </td>
+                    <td className="px-4 py-1.5 text-right">
+                      <button
+                        onClick={() => scanPortsFor(d.ip)}
+                        title={`Scan ports on ${d.ip}`}
+                        className="px-2 py-0.5 text-[10px] font-medium rounded border border-border-default text-fg-muted hover:text-accent-blue hover:border-accent-blue/50 transition-colors">
+                        Scan ports
+                      </button>
                     </td>
                   </tr>
                 )

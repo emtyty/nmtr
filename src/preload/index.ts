@@ -21,6 +21,15 @@ import type {
   PlaybackSeekPayload,
   PlaybackStopPayload,
   LanScanResult,
+  PortScanStartPayload,
+  PortScanStartResult,
+  PortScanCancelPayload,
+  PortScanExportPayload,
+  PortScanRecord,
+  NmapCheckResult,
+  PortScanProgressEvent,
+  PortScanDoneEvent,
+  OpenExternalPayload,
   HopUpdateEvent,
   HopsBatchEvent,
   HopNewEvent,
@@ -83,6 +92,28 @@ const nmtrAPI = {
   // ── LAN Network ────────────────────────────────────────────────────────────
   lanScan: (): Promise<LanScanResult> =>
     ipcRenderer.invoke(IPC.LAN_SCAN),
+
+  // ── Port scan (nmap) ─────────────────────────────────────────────────────────
+  portScanCheck: (): Promise<NmapCheckResult> =>
+    ipcRenderer.invoke(IPC.PORTSCAN_CHECK),
+  portScanStart: (payload: PortScanStartPayload): Promise<PortScanStartResult> =>
+    ipcRenderer.invoke(IPC.PORTSCAN_START, payload),
+  portScanCancel: (payload: PortScanCancelPayload): Promise<void> =>
+    ipcRenderer.invoke(IPC.PORTSCAN_CANCEL, payload),
+  portScanExport: (payload: PortScanExportPayload): Promise<ExportResult> =>
+    ipcRenderer.invoke(IPC.PORTSCAN_EXPORT, payload),
+  portScanHistoryGet: (): Promise<PortScanRecord[]> =>
+    ipcRenderer.invoke(IPC.PORTSCAN_HISTORY_GET),
+  portScanHistoryClear: (): Promise<void> =>
+    ipcRenderer.invoke(IPC.PORTSCAN_HISTORY_CLEAR),
+  onPortScanProgress: (cb: (e: PortScanProgressEvent) => void): Unsubscribe =>
+    on(IPC.PORTSCAN_PROGRESS, cb),
+  onPortScanDone: (cb: (e: PortScanDoneEvent) => void): Unsubscribe =>
+    on(IPC.PORTSCAN_DONE, cb),
+
+  // ── Shell ────────────────────────────────────────────────────────────────────
+  openExternal: (payload: OpenExternalPayload): Promise<void> =>
+    ipcRenderer.invoke(IPC.OPEN_EXTERNAL, payload),
 
   // ── Window controls ────────────────────────────────────────────────────────
   windowMinimize: (): void => ipcRenderer.send(IPC.WINDOW_MINIMIZE),

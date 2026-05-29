@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type { TracertResultEvent } from '@shared/types'
 
+export type NavView = 'traces' | 'history' | 'lan' | 'speedtest' | 'portscan'
+
 export interface RuntimeAlert {
   id: string
   level: 'warn' | 'error'
@@ -10,6 +12,25 @@ export interface RuntimeAlert {
 }
 
 interface UIState {
+  activeView: NavView
+  setActiveView: (view: NavView) => void
+
+  // When navigating to the port-scan view from elsewhere (e.g. the LAN view),
+  // this pre-fills the target field. Consumed (cleared) by PortScanView.
+  portScanPrefill: string | null
+  scanPortsFor: (target: string) => void   // set prefill + switch to portscan view
+  clearPortScanPrefill: () => void
+
+  // Pre-fill the Traces target from elsewhere (e.g. a port-scan row action).
+  tracePrefill: string | null
+  traceHost: (target: string) => void      // set prefill + switch to traces view
+  clearTracePrefill: () => void
+
+  // Global WHOIS dialog (so any view can trigger it).
+  whoisIp: string | null
+  openWhois: (ip: string) => void
+  closeWhois: () => void
+
   settingsOpen: boolean
   openSettings: () => void
   closeSettings: () => void
@@ -36,6 +57,21 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
+  activeView: 'traces',
+  setActiveView: (view) => set({ activeView: view }),
+
+  portScanPrefill: null,
+  scanPortsFor: (target) => set({ portScanPrefill: target, activeView: 'portscan' }),
+  clearPortScanPrefill: () => set({ portScanPrefill: null }),
+
+  tracePrefill: null,
+  traceHost: (target) => set({ tracePrefill: target, activeView: 'traces' }),
+  clearTracePrefill: () => set({ tracePrefill: null }),
+
+  whoisIp: null,
+  openWhois: (ip) => set({ whoisIp: ip }),
+  closeWhois: () => set({ whoisIp: null }),
+
   settingsOpen: false,
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),

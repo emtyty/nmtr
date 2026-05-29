@@ -1,4 +1,4 @@
-import { ipcMain, dialog, clipboard } from 'electron'
+import { ipcMain, dialog, clipboard, shell } from 'electron'
 import type { BrowserWindow } from 'electron'
 import { IPC } from './channels'
 import { ProberManager } from '../prober/ProberManager'
@@ -9,6 +9,9 @@ import { formatExport } from '../export/ExportFormatter'
 import { SessionPlayer } from '../recording/SessionPlayer'
 import { checkForUpdates, downloadUpdate, quitAndInstall } from '../updater/AutoUpdater'
 import { scanLan } from '../lan/LanScanner'
+import { checkNmap, startPortScan, cancelPortScan } from '../portscan/PortScanner'
+import { PortScanStore } from '../store/PortScanStore'
+import { formatPortScanExport } from '../export/PortScanExportFormatter'
 import type { TrayManager } from '../tray/TrayManager'
 import type {
   TraceStartPayload,
@@ -22,7 +25,11 @@ import type {
   RecordingStopPayload,
   PlaybackStartPayload,
   PlaybackSeekPayload,
-  PlaybackStopPayload
+  PlaybackStopPayload,
+  PortScanStartPayload,
+  PortScanCancelPayload,
+  PortScanExportPayload,
+  OpenExternalPayload
 } from '../../shared/types'
 
 const players = new Map<string, SessionPlayer>()
@@ -220,6 +227,58 @@ export function registerHandlers(win: BrowserWindow): void {
   // ── LAN Network ────────────────────────────────────────────────────────
   ipcMain.handle(IPC.LAN_SCAN, async () => {
     return await scanLan()
+  })
+
+  // ── Port scan (nmap) ───────────────────────────────────────────────────
+  ipcMain.handle(IPC.PORTSCAN_CHECK, async () => {
+    return await checkNmap(true)
+  })
+
+  ipcMain.handle(IPC.PORTSCAN_START, async (_e, payload: PortScanStartPayload) => {
+    const { randomUUID } = await import('crypto')
+    const scanId = randomUUID()
+    // Fire-and-forget: results stream back via PORTSCAN_PROGRESS / PORTSCAN_DONE.
+    void startPortScan(scanId, payload.config, win)
+    return { scanId }
+  })
+
+  ipcMain.handle(IPC.PORTSCAN_CANCEL, async (_e, payload: PortScanCancelPayload) => {
+    cancelPortScan(payload.scanId)
+  })
+
+  ipcMain.handle(IPC.PORTSCAN_EXPORT, async (_e, payload: PortScanExportPayload) => {
+    const result = formatPortScanExport(payload.result, payload.format)
+    const { filePath } = await dialog.showSaveDialog(win!, {
+      defaultPath: result.suggestedFilename,
+      filters: [{ name: result.mimeType, extensions: [result.suggestedFilename.split('.').pop()!] }]
+    })
+    if (filePath) {
+      const { writeFileSync } = await import('fs')
+      writeFileSync(filePath, result.content, 'utf8')
+    }
+    return result
+  })
+
+  ipcMain.handle(IPC.PORTSCAN_HISTORY_GET, () => {
+    return PortScanStore.getAll()
+  })
+
+  ipcMain.handle(IPC.PORTSCAN_HISTORY_CLEAR, () => {
+    PortScanStore.clear()
+  })
+
+  // ── Shell ──────────────────────────────────────────────────────────────
+  ipcMain.handle(IPC.OPEN_EXTERNAL, async (_e, payload: OpenExternalPayload) => {
+    // Only allow http/https — never arbitrary schemes (file:, etc.).
+    let url: URL
+    try {
+      url = new URL(payload.url)
+    } catch {
+      return
+    }
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      await shell.openExternal(url.toString())
+    }
   })
 
   // ── Auto-update ────────────────────────────────────────────────────────────

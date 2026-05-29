@@ -289,6 +289,99 @@ export interface TracertResultEvent {
   error: string | null       // spawn error message, or null on success
 }
 
+// ─── Port scan (nmap) ─────────────────────────────────────────────────────────
+
+export type PortScanProtocol = 'tcp' | 'udp'
+export type PortScanPreset = 'top100' | 'top1000' | 'all' | 'custom'
+export type PortState = 'open' | 'closed' | 'filtered' | 'open|filtered' | 'unfiltered'
+
+export interface PortScanConfig {
+  target: string                 // host, IP, or CIDR
+  protocol: PortScanProtocol
+  preset: PortScanPreset
+  customPorts: string            // nmap -p value when preset === 'custom', e.g. "22,80,443,8000-8100"
+  serviceDetection: boolean      // -sV (service + version/banner)
+}
+
+export interface PortInfo {
+  port: number
+  protocol: string               // "tcp" | "udp"
+  state: PortState
+  service: string | null         // e.g. "https"
+  product: string | null         // banner product, e.g. "nginx"
+  version: string | null         // banner version, e.g. "1.24.0"
+  extraInfo: string | null       // e.g. "Ubuntu"
+}
+
+/** Open ports that changed since the previous scan of the same target+protocol. */
+export interface PortScanDiff {
+  previousScanAt: number | null  // when the compared prior scan ran; null = no prior scan
+  newlyOpened: number[]          // ports open now but not in the prior scan
+  newlyClosed: { port: number; protocol: string; service: string | null }[] // open before, gone now
+}
+
+export interface PortScanResult {
+  scanId: string
+  target: string
+  protocol: PortScanProtocol
+  resolvedIp: string | null
+  hostUp: boolean
+  ports: PortInfo[]
+  closedCount: number            // ports nmap grouped as closed (extraports)
+  filteredCount: number          // ports nmap grouped as filtered (extraports)
+  startedAt: number              // Date.now()
+  durationMs: number
+  nmapVersion: string | null
+  diff: PortScanDiff | null      // change vs previous scan of this target (null if none)
+  error: string | null           // null on success
+}
+
+/** Persisted summary of a completed scan (for history + diffing). */
+export interface PortScanRecord {
+  id: string
+  target: string
+  protocol: PortScanProtocol
+  scannedAt: number
+  openPorts: { port: number; protocol: string; service: string | null }[]
+  openCount: number
+}
+
+export type PortScanExportFormat = 'csv' | 'html' | 'json'
+export interface PortScanExportPayload {
+  result: PortScanResult
+  format: PortScanExportFormat
+}
+export interface OpenExternalPayload {
+  url: string
+}
+
+export interface PortScanStartPayload {
+  config: PortScanConfig
+}
+export interface PortScanStartResult {
+  scanId: string
+}
+export interface PortScanCancelPayload {
+  scanId: string
+}
+export interface NmapCheckResult {
+  available: boolean
+  version: string | null
+  path: string | null
+}
+
+// Main → renderer push events
+export interface PortScanProgressEvent {
+  scanId: string
+  percent: number | null         // 0–100, null if unknown
+  message: string | null         // status line, e.g. "Service scan"
+  openPort: { port: number; protocol: string } | null  // newly discovered open port
+}
+export interface PortScanDoneEvent {
+  scanId: string
+  result: PortScanResult
+}
+
 // ─── IPC push event payloads (main → renderer) ───────────────────────────────
 
 export interface HopUpdateEvent {

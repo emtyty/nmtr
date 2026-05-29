@@ -1,7 +1,8 @@
 import React from 'react'
 import { useUIStore } from '../../store/useUIStore'
+import type { NavView } from '../../store/useUIStore'
 
-export type NavView = 'traces' | 'history' | 'lan' | 'speedtest'
+export type { NavView }
 
 interface IconNavProps {
   activeView: NavView
@@ -46,6 +47,16 @@ const SpeedTestIcon = (
   </svg>
 )
 
+const PortScanIcon = (
+  <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <rect x="3" y="3" width="14" height="14" rx="2" />
+    <path d="M6 7h2M6 10h2M6 13h2" strokeLinecap="round" />
+    <circle cx="13" cy="7" r="1" fill="currentColor" stroke="none" />
+    <circle cx="13" cy="10" r="1" fill="currentColor" stroke="none" />
+    <circle cx="13" cy="13" r="1" fill="currentColor" stroke="none" />
+  </svg>
+)
+
 const SettingsIcon = (
   <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
     <circle cx="10" cy="10" r="2.5" />
@@ -60,6 +71,7 @@ export function IconNav({ activeView, onNavigate }: IconNavProps): React.JSX.Ele
     { kind: 'view', id: 'traces', label: 'Traces', icon: TracesIcon },
     { kind: 'view', id: 'history', label: 'History', icon: HistoryIcon },
     { kind: 'view', id: 'lan', label: 'LAN', icon: LanIcon },
+    { kind: 'view', id: 'portscan', label: 'Ports', icon: PortScanIcon },
     { kind: 'view', id: 'speedtest', label: 'Speed', icon: SpeedTestIcon },
     { kind: 'action', label: 'Settings', icon: SettingsIcon, onAction: openSettings }
   ]

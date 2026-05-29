@@ -1,23 +1,28 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { TitleBar } from './components/layout/TitleBar'
 import { Sidebar } from './components/layout/Sidebar'
 import { IconNav } from './components/layout/IconNav'
-import type { NavView } from './components/layout/IconNav'
 import { TraceView } from './components/trace/TraceView'
 import { TracertResultModal } from './components/trace/TracertResultModal'
+import { WhoisDialog } from './components/dialogs/WhoisDialog'
 import { HistoryView } from './components/views/HistoryView'
 import { LanNetworkView } from './components/lan/LanNetworkView'
 import { SpeedTestView } from './components/views/SpeedTestView'
+import { PortScanView } from './components/views/PortScanView'
 import { useTraceSession } from './hooks/useTraceSession'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useSettingsStore } from './store/useSettingsStore'
+import { useUIStore } from './store/useUIStore'
 import { UpdateBanner } from './components/update/UpdateBanner'
 import { useUpdater } from './hooks/useUpdater'
 import { RuntimeAlertStack } from './components/layout/RuntimeAlertStack'
 
 export default function App(): React.JSX.Element {
   const { load } = useSettingsStore()
-  const [activeView, setActiveView] = useState<NavView>('traces')
+  const activeView = useUIStore((s) => s.activeView)
+  const setActiveView = useUIStore((s) => s.setActiveView)
+  const whoisIp = useUIStore((s) => s.whoisIp)
+  const closeWhois = useUIStore((s) => s.closeWhois)
 
   useEffect(() => { load() }, [])
 
@@ -40,6 +45,8 @@ export default function App(): React.JSX.Element {
           </>
         ) : activeView === 'lan' ? (
           <LanNetworkView />
+        ) : activeView === 'portscan' ? (
+          <PortScanView />
         ) : activeView === 'speedtest' ? (
           <SpeedTestView />
         ) : (
@@ -47,6 +54,7 @@ export default function App(): React.JSX.Element {
         )}
       </div>
       <TracertResultModal />
+      <WhoisDialog ip={whoisIp} onClose={closeWhois} />
     </div>
   )
 }

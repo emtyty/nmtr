@@ -44,6 +44,21 @@ export const IPC = {
   // LAN Network (renderer → main invoke)
   LAN_SCAN: 'lan:scan',
 
+  // Port scan / nmap (renderer → main invoke)
+  PORTSCAN_CHECK: 'portscan:check',   // detect nmap availability
+  PORTSCAN_START: 'portscan:start',
+  PORTSCAN_CANCEL: 'portscan:cancel',
+  PORTSCAN_EXPORT: 'portscan:export',
+  PORTSCAN_HISTORY_GET: 'portscan:historyGet',
+  PORTSCAN_HISTORY_CLEAR: 'portscan:historyClear',
+
+  // Port scan (main → renderer push)
+  PORTSCAN_PROGRESS: 'portscan:progress',
+  PORTSCAN_DONE: 'portscan:done',
+
+  // Shell (renderer → main invoke)
+  OPEN_EXTERNAL: 'shell:openExternal',
+
   // Auto-update (renderer → main invoke)
   UPDATE_CHECK: 'update:check',
   UPDATE_DOWNLOAD: 'update:download',
