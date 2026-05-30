@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { TracertResultEvent } from '@shared/types'
 
-export type NavView = 'traces' | 'history' | 'lan' | 'speedtest' | 'portscan' | 'dns' | 'ssl' | 'pubscan'
+export type NavView = 'traces' | 'history' | 'lan' | 'wifi' | 'speedtest' | 'portscan' | 'dns' | 'ssl' | 'pubscan' | 'monitor'
 
 export interface RuntimeAlert {
   id: string

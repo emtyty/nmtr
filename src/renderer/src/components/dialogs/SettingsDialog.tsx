@@ -106,16 +106,41 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
               </select>
             </div>
 
-            {/* Minimize to tray (general app behaviour) */}
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={draft.minimizeToTray}
-                onChange={(e) => setProp('minimizeToTray', e.target.checked)}
-                className="w-4 h-4 accent-accent-blue"
-              />
-              <span className="text-base text-fg-default">Minimize to Tray on Close</span>
-            </label>
+            {/* General app behaviour */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draft.minimizeToTray}
+                  onChange={(e) => setProp('minimizeToTray', e.target.checked)}
+                  className="w-4 h-4 accent-accent-blue"
+                />
+                <span className="text-base text-fg-default">Minimize to Tray on Close</span>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draft.launchAtLogin}
+                  onChange={(e) => setProp('launchAtLogin', e.target.checked)}
+                  className="w-4 h-4 accent-accent-blue"
+                />
+                <span className="text-base text-fg-default">Launch at Login</span>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draft.checkUpdatesOnStartup}
+                  onChange={(e) => setProp('checkUpdatesOnStartup', e.target.checked)}
+                  className="w-4 h-4 accent-accent-blue"
+                />
+                <span className="text-base text-fg-default">Check for Updates on Startup</span>
+              </label>
+            </div>
+            <p className="text-xs text-fg-subtle leading-relaxed">
+              “Launch at Login” registers the installed app to start with Windows; it has no effect in development builds.
+            </p>
           </div>
 
           {/* Trace tab */}

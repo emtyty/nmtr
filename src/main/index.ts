@@ -1,10 +1,11 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, session } from 'electron'
 import { join } from 'path'
-import { registerHandlers, setTrayManager } from './ipc/handlers'
+import { registerHandlers, setTrayManager, applyLaunchAtLogin } from './ipc/handlers'
 import { ProberManager } from './prober/ProberManager'
+import { MonitorEngine } from './monitor/MonitorEngine'
 import { TrayManager } from './tray/TrayManager'
 import { AppSettingsStore } from './store/AppSettings'
-import { initAutoUpdater } from './updater/AutoUpdater'
+import { initAutoUpdater, checkForUpdates } from './updater/AutoUpdater'
 import { createLogoIcon } from './utils/logoIcon'
 
 let mainWindow: BrowserWindow | null = null
@@ -103,6 +104,20 @@ app.whenReady().then(async () => {
   registerHandlers(mainWindow!)
   initAutoUpdater(mainWindow!)
 
+  const startupSettings = AppSettingsStore.get()
+
+  // Sync the OS login-item registration with the saved preference.
+  applyLaunchAtLogin(startupSettings.launchAtLogin)
+
+  // Auto-check for updates shortly after launch, if enabled (manual button
+  // always works regardless). Delayed so it never competes with first paint.
+  if (startupSettings.checkUpdatesOnStartup) {
+    setTimeout(() => { void checkForUpdates() }, 4000)
+  }
+
+  // Start scheduled monitors in the background (reads persisted configs).
+  MonitorEngine.start(mainWindow!)
+
   trayManager = new TrayManager(mainWindow!)
   setTrayManager(trayManager)
 
@@ -114,12 +129,14 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     ProberManager.destroyAll()
+    MonitorEngine.stop()
     app.quit()
   }
 })
 
 app.on('before-quit', () => {
   ProberManager.destroyAll()
+  MonitorEngine.stop()
 })
 
 export { mainWindow }

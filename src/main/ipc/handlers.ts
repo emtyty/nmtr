@@ -1,4 +1,4 @@
-import { ipcMain, dialog, clipboard, shell } from 'electron'
+import { app, ipcMain, dialog, clipboard, shell } from 'electron'
 import type { BrowserWindow } from 'electron'
 import { IPC } from './channels'
 import { ProberManager } from '../prober/ProberManager'
@@ -23,6 +23,9 @@ import { formatSslExport } from '../export/SslExportFormatter'
 import { startPubScan, cancelPubScan } from '../pubscan/PubScanScanner'
 import { PubScanStore } from '../store/PubScanStore'
 import { formatPubScanExport } from '../export/PubScanExportFormatter'
+import { scanWifi } from '../wifi/WifiScanner'
+import { MonitorEngine } from '../monitor/MonitorEngine'
+import { MonitorStore } from '../store/MonitorStore'
 import type { TrayManager } from '../tray/TrayManager'
 import type {
   TraceStartPayload,
@@ -54,6 +57,8 @@ import type {
   PubScanStartPayload,
   PubScanCancelPayload,
   PubScanExportPayload,
+  MonitorAddPayload,
+  MonitorUpdatePayload,
   OpenExternalPayload
 } from '../../shared/types'
 
@@ -66,6 +71,20 @@ let _tray: TrayManager | null = null
 
 export function setTrayManager(mgr: TrayManager): void {
   _tray = mgr
+}
+
+/**
+ * Register/unregister the app as an OS login item. No-op in development
+ * (`app.isPackaged` is false), where the executable is Electron itself rather
+ * than the installed app, so a login entry would point at the wrong binary.
+ */
+export function applyLaunchAtLogin(enabled: boolean): void {
+  if (!app.isPackaged) return
+  try {
+    app.setLoginItemSettings({ openAtLogin: enabled })
+  } catch (err) {
+    console.error('[Settings] Failed to set login item:', err)
+  }
 }
 
 export function registerHandlers(win: BrowserWindow): void {
@@ -171,6 +190,10 @@ export function registerHandlers(win: BrowserWindow): void {
 
   ipcMain.handle(IPC.SETTINGS_SET, (_e, partial) => {
     AppSettingsStore.set(partial)
+    // Keep the OS login-item registration in sync when the toggle changes.
+    if (typeof partial?.launchAtLogin === 'boolean') {
+      applyLaunchAtLogin(partial.launchAtLogin)
+    }
   })
 
   // ── Recording ──────────────────────────────────────────────────────────────
@@ -453,6 +476,40 @@ export function registerHandlers(win: BrowserWindow): void {
       writeFileSync(filePath, result.content, 'utf8')
     }
     return result
+  })
+
+  // ── Wi-Fi analyzer ───────────────────────────────────────────────────────
+  ipcMain.handle(IPC.WIFI_SCAN, async () => {
+    return await scanWifi()
+  })
+
+  // ── Monitors / scheduled health checks ─────────────────────────────────────
+  ipcMain.handle(IPC.MONITOR_LIST, () => {
+    return MonitorStore.listWithStats()
+  })
+
+  ipcMain.handle(IPC.MONITOR_ADD, (_e, payload: MonitorAddPayload) => {
+    return MonitorEngine.add(payload.config)
+  })
+
+  ipcMain.handle(IPC.MONITOR_UPDATE, (_e, payload: MonitorUpdatePayload) => {
+    return MonitorEngine.update(payload.id, payload.patch)
+  })
+
+  ipcMain.handle(IPC.MONITOR_REMOVE, (_e, id: string) => {
+    MonitorEngine.remove(id)
+  })
+
+  ipcMain.handle(IPC.MONITOR_RUN_NOW, async (_e, id: string) => {
+    await MonitorEngine.runNow(id)
+  })
+
+  ipcMain.handle(IPC.MONITOR_INCIDENTS, () => {
+    return MonitorStore.getIncidents()
+  })
+
+  ipcMain.handle(IPC.MONITOR_CLEAR_HISTORY, (_e, id: string) => {
+    MonitorStore.clearHistory(id)
   })
 
   // ── Shell ──────────────────────────────────────────────────────────────
