@@ -11,6 +11,7 @@ import { SpeedTestView } from './components/views/SpeedTestView'
 import { PortScanView } from './components/views/PortScanView'
 import { DnsView } from './components/views/DnsView'
 import { SslView } from './components/views/SslView'
+import { PublicScanView } from './components/views/PublicScanView'
 import { useTraceSession } from './hooks/useTraceSession'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useSettingsStore } from './store/useSettingsStore'
@@ -55,6 +56,8 @@ export default function App(): React.JSX.Element {
           <DnsView />
         ) : activeView === 'ssl' ? (
           <SslView />
+        ) : activeView === 'pubscan' ? (
+          <PublicScanView />
         ) : (
           <HistoryView />
         )}

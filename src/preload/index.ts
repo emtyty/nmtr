@@ -52,6 +52,13 @@ import type {
   SslWatchAddPayload,
   SslScanProgressEvent,
   SslScanDoneEvent,
+  PubScanStartPayload,
+  PubScanStartResult,
+  PubScanCancelPayload,
+  PubScanExportPayload,
+  PubScanRecord,
+  PubScanProgressEvent,
+  PubScanDoneEvent,
   OpenExternalPayload,
   HopUpdateEvent,
   HopsBatchEvent,
@@ -179,6 +186,24 @@ const nmtrAPI = {
     on(IPC.SSL_PROGRESS, cb),
   onSslDone: (cb: (e: SslScanDoneEvent) => void): Unsubscribe =>
     on(IPC.SSL_DONE, cb),
+
+  // ── Public Scan / web security test ───────────────────────────────────────────
+  pubScanStart: (payload: PubScanStartPayload): Promise<PubScanStartResult> =>
+    ipcRenderer.invoke(IPC.PUBSCAN_START, payload),
+  pubScanCancel: (payload: PubScanCancelPayload): Promise<void> =>
+    ipcRenderer.invoke(IPC.PUBSCAN_CANCEL, payload),
+  pubScanExport: (payload: PubScanExportPayload): Promise<ExportResult> =>
+    ipcRenderer.invoke(IPC.PUBSCAN_EXPORT, payload),
+  pubScanHistoryGet: (): Promise<PubScanRecord[]> =>
+    ipcRenderer.invoke(IPC.PUBSCAN_HISTORY_GET),
+  pubScanHistoryClear: (): Promise<void> =>
+    ipcRenderer.invoke(IPC.PUBSCAN_HISTORY_CLEAR),
+  pubScanHistoryRemove: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.PUBSCAN_HISTORY_REMOVE, id),
+  onPubScanProgress: (cb: (e: PubScanProgressEvent) => void): Unsubscribe =>
+    on(IPC.PUBSCAN_PROGRESS, cb),
+  onPubScanDone: (cb: (e: PubScanDoneEvent) => void): Unsubscribe =>
+    on(IPC.PUBSCAN_DONE, cb),
 
   // ── Shell ────────────────────────────────────────────────────────────────────
   openExternal: (payload: OpenExternalPayload): Promise<void> =>

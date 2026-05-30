@@ -813,3 +813,181 @@ export interface SslScanDoneEvent {
   scanId: string
   result: SslScanResult
 }
+
+// ─── Public Scan (ImmuniWeb-style web security test) ───────────────────────────
+
+/** A→F web-security grade (no T/M states — those are TLS-specific). */
+export type PubScanGrade = 'A+' | 'A' | 'B' | 'C' | 'D' | 'F'
+
+export type PubFindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
+
+/** The audit category a check/finding belongs to. */
+export type PubScanCategory = 'headers' | 'cookies' | 'csp' | 'tls' | 'dns' | 'software' | 'privacy'
+
+/** One actionable finding, ranked by severity and tied to a category. */
+export interface PubFinding {
+  id: string                   // stable key (category:slug) — used for diffing across scans
+  category: PubScanCategory
+  severity: PubFindingSeverity
+  title: string
+  detail: string
+  recommendation: string | null
+}
+
+/** Pass/warn/fail status used by header + email checks. */
+export type PubCheckStatus = 'pass' | 'warn' | 'fail' | 'info'
+
+/** A single HTTP response-header check. */
+export interface PubHeaderCheck {
+  name: string                 // canonical header name, e.g. "Strict-Transport-Security"
+  present: boolean
+  value: string | null
+  status: PubCheckStatus
+  note: string
+}
+
+/** A Set-Cookie cookie and its security flags. */
+export interface PubCookie {
+  name: string
+  secure: boolean
+  httpOnly: boolean
+  sameSite: string | null      // "Strict" | "Lax" | "None" | null (unset)
+}
+
+/** Parsed Content-Security-Policy report. */
+export interface PubCspReport {
+  present: boolean
+  raw: string | null
+  directiveCount: number
+  issues: string[]             // human-readable weaknesses (unsafe-inline, wildcards, …)
+}
+
+export type PubTechCategory = 'server' | 'language' | 'cms' | 'framework' | 'js-library' | 'analytics' | 'cdn' | 'other'
+
+/** A detected software component (fingerprint only — no CVE lookup). */
+export interface PubTech {
+  name: string
+  version: string | null
+  category: PubTechCategory
+  source: string               // where it was detected, e.g. "Server header"
+}
+
+/** A distinct third-party origin referenced by the page. */
+export interface PubThirdParty {
+  host: string
+  kinds: string[]              // "script" | "stylesheet" | "iframe" | "image" | "font"
+  count: number
+  tracker: boolean             // matches a known analytics/ads host
+}
+
+/** Lightweight TLS summary captured from the HTTPS connection used for the probe. */
+export interface PubTlsSummary {
+  https: boolean               // the final URL was reached over HTTPS
+  protocol: string | null      // negotiated TLS version, e.g. "TLSv1.3"
+  certIssuer: string | null
+  certSubject: string | null
+  validTo: string | null       // ISO
+  daysRemaining: number | null
+  trusted: boolean
+  hostnameMatch: boolean
+  error: string | null
+}
+
+/** CAA presence (best-effort DNS lookup). */
+export interface PubCaa {
+  present: boolean
+  records: string[]
+}
+
+/** Roll-up of findings against one compliance framework. */
+export interface PubComplianceItem {
+  framework: string            // "GDPR" | "PCI DSS" | "NIST 800-53"
+  status: PubCheckStatus
+  notes: string[]              // short summary lines (always shown)
+  details: string[]            // specific contributing findings (shown on click)
+}
+
+/** Per-category letter grade shown in the summary matrix. */
+export interface PubCategoryGrade {
+  category: PubScanCategory
+  grade: PubScanGrade
+}
+
+/** Change vs the previous scan of the same domain. */
+export interface PubScanDiff {
+  previousScanAt: number | null
+  gradeChanged: { from: PubScanGrade; to: PubScanGrade } | null
+  newFindings: string[]        // titles introduced since last scan
+  resolvedFindings: string[]   // titles no longer present
+}
+
+export interface PubScanConfig {
+  url: string                  // raw user input (host, domain, or full URL)
+}
+
+export interface PubScanResult {
+  scanId: string
+  input: string                // the raw input
+  domain: string               // registrable host
+  url: string                  // normalised URL we started from
+  finalUrl: string             // after following redirects
+  ip: string | null
+  statusCode: number | null
+  redirects: string[]          // full redirect chain (origin → … → final)
+  grade: PubScanGrade
+  categoryGrades: PubCategoryGrade[]
+  score: number                // 0–100
+  headers: PubHeaderCheck[]
+  cookies: PubCookie[]
+  csp: PubCspReport
+  tech: PubTech[]
+  thirdParty: PubThirdParty[]
+  tls: PubTlsSummary | null
+  email: DnsEmailSecurity | null  // reuses the DNS email-security engine
+  caa: PubCaa | null
+  compliance: PubComplianceItem[]
+  findings: PubFinding[]
+  diff: PubScanDiff | null
+  startedAt: number
+  durationMs: number
+  error: string | null         // fatal error (couldn't fetch at all)
+}
+
+/** Persisted summary of a completed public scan (history + diffing). */
+export interface PubScanRecord {
+  id: string
+  domain: string
+  url: string
+  grade: PubScanGrade
+  scannedAt: number
+  durationMs: number
+  findingCount: number
+  result: PubScanResult        // full result, so a history click restores it without rescanning
+}
+
+export interface PubScanStartPayload {
+  config: PubScanConfig
+}
+export interface PubScanStartResult {
+  scanId: string
+}
+export interface PubScanCancelPayload {
+  scanId: string
+}
+
+export type PubScanExportFormat = 'csv' | 'html' | 'json' | 'text'
+export interface PubScanExportPayload {
+  result: PubScanResult
+  format: PubScanExportFormat
+}
+
+// Main → renderer push events
+export interface PubScanProgressEvent {
+  scanId: string
+  percent: number | null
+  message: string | null
+}
+export interface PubScanDoneEvent {
+  scanId: string
+  result: PubScanResult
+}

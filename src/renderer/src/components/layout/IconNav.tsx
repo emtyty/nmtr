@@ -72,6 +72,14 @@ const SslIcon = (
   </svg>
 )
 
+const WebScanIcon = (
+  <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <circle cx="9" cy="9" r="6" />
+    <path d="M3.2 9h11.6M9 3.2c1.7 1.7 2.4 3.9 2.4 5.8s-.7 4.1-2.4 5.8c-1.7-1.7-2.4-3.9-2.4-5.8S7.3 4.9 9 3.2z" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13.2 13.2l4 4" strokeLinecap="round" />
+  </svg>
+)
+
 const SettingsIcon = (
   <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
     <circle cx="10" cy="10" r="2.5" />
@@ -90,6 +98,7 @@ export function IconNav({ activeView, onNavigate }: IconNavProps): React.JSX.Ele
     { kind: 'view', id: 'speedtest', label: 'Speed', icon: SpeedTestIcon },
     { kind: 'view', id: 'dns', label: 'DNS', icon: DnsIcon },
     { kind: 'view', id: 'ssl', label: 'SSL', icon: SslIcon },
+    { kind: 'view', id: 'pubscan', label: 'Web', icon: WebScanIcon },
     { kind: 'action', label: 'Settings', icon: SettingsIcon, onAction: openSettings }
   ]
 

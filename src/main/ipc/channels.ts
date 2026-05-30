@@ -83,6 +83,18 @@ export const IPC = {
   SSL_PROGRESS: 'ssl:progress',
   SSL_DONE: 'ssl:done',
 
+  // Public Scan / web security test (renderer → main invoke)
+  PUBSCAN_START: 'pubscan:start',
+  PUBSCAN_CANCEL: 'pubscan:cancel',
+  PUBSCAN_EXPORT: 'pubscan:export',
+  PUBSCAN_HISTORY_GET: 'pubscan:historyGet',
+  PUBSCAN_HISTORY_CLEAR: 'pubscan:historyClear',
+  PUBSCAN_HISTORY_REMOVE: 'pubscan:historyRemove',
+
+  // Public Scan (main → renderer push)
+  PUBSCAN_PROGRESS: 'pubscan:progress',
+  PUBSCAN_DONE: 'pubscan:done',
+
   // Shell (renderer → main invoke)
   OPEN_EXTERNAL: 'shell:openExternal',
 

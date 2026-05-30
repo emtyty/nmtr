@@ -20,6 +20,9 @@ import { resolveEndpoints } from '../ssl/SslResolver'
 import { startSslScan, cancelSslScan } from '../ssl/SslAnalyzer'
 import { SslStore } from '../store/SslStore'
 import { formatSslExport } from '../export/SslExportFormatter'
+import { startPubScan, cancelPubScan } from '../pubscan/PubScanScanner'
+import { PubScanStore } from '../store/PubScanStore'
+import { formatPubScanExport } from '../export/PubScanExportFormatter'
 import type { TrayManager } from '../tray/TrayManager'
 import type {
   TraceStartPayload,
@@ -48,6 +51,9 @@ import type {
   SslScanCancelPayload,
   SslExportPayload,
   SslWatchAddPayload,
+  PubScanStartPayload,
+  PubScanCancelPayload,
+  PubScanExportPayload,
   OpenExternalPayload
 } from '../../shared/types'
 
@@ -392,6 +398,48 @@ export function registerHandlers(win: BrowserWindow): void {
 
   ipcMain.handle(IPC.SSL_EXPORT, async (_e, payload: SslExportPayload) => {
     const result = formatSslExport(payload.result, payload.format)
+    if (payload.format === 'text') {
+      clipboard.writeText(result.content)
+      return result
+    }
+    const { filePath } = await dialog.showSaveDialog(win!, {
+      defaultPath: result.suggestedFilename,
+      filters: [{ name: result.mimeType, extensions: [result.suggestedFilename.split('.').pop()!] }]
+    })
+    if (filePath) {
+      const { writeFileSync } = await import('fs')
+      writeFileSync(filePath, result.content, 'utf8')
+    }
+    return result
+  })
+
+  // ── Public Scan / web security test ──────────────────────────────────────
+  ipcMain.handle(IPC.PUBSCAN_START, async (_e, payload: PubScanStartPayload) => {
+    const { randomUUID } = await import('crypto')
+    const scanId = randomUUID()
+    // Fire-and-forget: results stream back via PUBSCAN_PROGRESS / PUBSCAN_DONE.
+    void startPubScan(scanId, payload.config, win)
+    return { scanId }
+  })
+
+  ipcMain.handle(IPC.PUBSCAN_CANCEL, async (_e, payload: PubScanCancelPayload) => {
+    cancelPubScan(payload.scanId)
+  })
+
+  ipcMain.handle(IPC.PUBSCAN_HISTORY_GET, () => {
+    return PubScanStore.getAll()
+  })
+
+  ipcMain.handle(IPC.PUBSCAN_HISTORY_CLEAR, () => {
+    PubScanStore.clear()
+  })
+
+  ipcMain.handle(IPC.PUBSCAN_HISTORY_REMOVE, (_e, id: string) => {
+    PubScanStore.remove(id)
+  })
+
+  ipcMain.handle(IPC.PUBSCAN_EXPORT, async (_e, payload: PubScanExportPayload) => {
+    const result = formatPubScanExport(payload.result, payload.format)
     if (payload.format === 'text') {
       clipboard.writeText(result.content)
       return result

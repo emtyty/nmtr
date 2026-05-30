@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { TracertResultEvent } from '@shared/types'
 
-export type NavView = 'traces' | 'history' | 'lan' | 'speedtest' | 'portscan' | 'dns' | 'ssl'
+export type NavView = 'traces' | 'history' | 'lan' | 'speedtest' | 'portscan' | 'dns' | 'ssl' | 'pubscan'
 
 export interface RuntimeAlert {
   id: string
@@ -35,6 +35,11 @@ interface UIState {
   sslPrefill: string | null
   scanSslFor: (host: string) => void        // set prefill + switch to ssl view
   clearSslPrefill: () => void
+
+  // Pre-fill the Public Scan view from elsewhere. Consumed (cleared) by PublicScanView.
+  pubScanPrefill: string | null
+  webScanFor: (target: string) => void      // set prefill + switch to pubscan view
+  clearPubScanPrefill: () => void
 
   // Global WHOIS dialog (so any view can trigger it).
   whoisIp: string | null
@@ -85,6 +90,10 @@ export const useUIStore = create<UIState>((set) => ({
   sslPrefill: null,
   scanSslFor: (host) => set({ sslPrefill: host, activeView: 'ssl' }),
   clearSslPrefill: () => set({ sslPrefill: null }),
+
+  pubScanPrefill: null,
+  webScanFor: (target) => set({ pubScanPrefill: target, activeView: 'pubscan' }),
+  clearPubScanPrefill: () => set({ pubScanPrefill: null }),
 
   whoisIp: null,
   openWhois: (ip) => set({ whoisIp: ip }),

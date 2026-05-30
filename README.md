@@ -27,6 +27,11 @@ A modern rewrite of WinMTR as an Electron desktop application for Windows. Combi
 - **History filter/sort/rerun** — filter and sort trace history, rerun any previous session with one click
 - **SLO alerting** — configurable alert thresholds for packet loss, RTT, and jitter; live alert stack (bottom right), desktop notifications, and alert history
 - **SSL scan** — SSL Labs–style TLS audit: resolve a host to its IP endpoints, pick one, then probe every protocol version (SSLv3→TLS 1.3) and enumerate supported cipher suites, inspect the certificate + chain, verify trust and hostname, flag weak/insecure ciphers and protocols, and compute an A+→F grade; scan history with delete, rescan, and diff-vs-previous. Pure-Node `tls` engine — works offline and against internal IPs, no data leaves the machine
+  - **Multi-IP scan** — scan every resolved endpoint at once and compare them side by side, flagging endpoints whose grade, enabled protocols, or certificate diverge (catches load-balanced nodes with drifted configs)
+  - **OCSP revocation** — parses the OCSP response stapled during the handshake; a confirmed revocation drops the grade to `T` and raises a critical issue
+  - **HSTS & security headers** — a single dependency-free HTTPS request reads `Strict-Transport-Security`, `Content-Security-Policy`, `X-Frame-Options`, and `X-Content-Type-Options`; HSTS gates the jump from A to A+ and missing headers surface as issues
+  - **Expiry watchlist** — star any endpoint to watch it; the watchlist sorts soonest-to-expire first with color-coded days remaining, auto-refreshes on every scan, and offers one-click re-check
+- **Public Scan** — ImmuniWeb-style web security test: enter a public domain/URL and get one orchestrated, *passive* assessment with an A+→F grade plus per-category sub-grades. Checks HTTP security headers (HSTS/CSP/X-Frame-Options/…), cookie flags (Secure/HttpOnly/SameSite), CSP weaknesses (unsafe-inline/eval/wildcards), TLS posture (trust, hostname, protocol, certificate expiry — read from the connection socket), DNS email security (SPF/DMARC/DKIM, reusing the DNS engine) + CAA, software fingerprinting (server/CMS/JS-library), and third-party origins/trackers; rolls every finding into GDPR / PCI DSS / NIST compliance verdicts and a prioritized, actionable findings list. Scan history with diff-vs-previous and Text/CSV/HTML/JSON export. Runs entirely from the main process over Node's `http`/`https`/`tls`/`dns` — no third-party scanning service, nothing leaves the machine
 
 ## Requirements
 
@@ -77,6 +82,7 @@ src/
 │   ├── ipc/             # IPC channel constants + request handlers
 │   ├── prober/          # ProberSession, StatsAggregator, NativeEngine (ICMP FFI), PingusEngine
 │   ├── ssl/             # SslResolver (host → IP endpoints) + SslAnalyzer (pure-Node TLS audit)
+│   ├── pubscan/         # PubScanScanner (HTTP probe + header/cookie/CSP/tech/3rd-party analysis, grade & compliance)
 │   ├── enrichment/      # GeoIP (geojs.io over HTTPS, LRU-cached) + WHOIS fetcher
 │   ├── recording/       # Session recorder + player (.nmtr NDJSON format)
 │   ├── export/          # Text / CSV / HTML formatters
@@ -95,7 +101,7 @@ src/
     │   ├── playback/    # Playback bar
     │   ├── trace/       # HopTable, SessionRttChart, RouteEventsPanel
     │   ├── update/      # Update banner
-    │   └── views/       # HistoryView, DnsView, PortScanView, SpeedTestView, SslView (+ SslResultPanels)
+    │   └── views/       # HistoryView, DnsView, PortScanView, SpeedTestView, SslView (+ SslResultPanels), PublicScanView (+ PublicScanPanels)
     ├── lib/             # Utilities (scrollGate — hop-table scroll locking)
     └── hooks/           # useTraceSession (IPC → store), useKeyboardShortcuts, useUpdater
 ```
@@ -136,7 +142,8 @@ src/
 - **HTTPS-only geo enrichment** — GeoIP lookups use `https://get.geojs.io` to prevent cleartext IP leaks / MITM
 - **Input validation** — traceroute targets validated against hostname/IPv4 regex before `spawn('tracert', ...)`
 - **Safe subprocess spawning** — all LAN scanner subprocesses (`ping`, `nslookup`, `nbtstat`) use `spawn()` with argv arrays (no shell interpolation) plus IP format validation
-- **Local-only SSL scanning** — the SSL scan runs entirely in the main process via Node's `tls` module; no certificate, hostname, or scan data is sent to any third-party service (unlike hosted SSL test sites)
+- **Local-only SSL scanning** — the SSL scan runs entirely in the main process via Node's `tls` module; protocol/cipher probes, the OCSP staple, and the HSTS/security-header request all go directly to the scanned endpoint, so no certificate, hostname, or scan data is sent to any third-party service (unlike hosted SSL test sites)
+- **Passive, local-only Public Scan** — the web security test issues a single GET to the target (following redirects) and analyses the response in-process; it is strictly *passive* — no port scanning or active probing — and sends nothing to a third-party scanning service, unlike hosted tools (ImmuniWeb, securityheaders.com)
 
 ## License
 
