@@ -689,6 +689,36 @@ export interface SslIssue {
 /** SSL Labs–style grade. `T` = trust problem, `M` = hostname mismatch. */
 export type SslGrade = 'A+' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'T' | 'M'
 
+/** HTTP-layer security headers read with a single HTTPS GET after the handshake. */
+export interface SslHsts {
+  present: boolean
+  maxAge: number | null          // seconds
+  includeSubDomains: boolean
+  preload: boolean
+  raw: string | null
+}
+export interface SslSecurityHeaders {
+  fetched: boolean               // did we get an HTTP response at all?
+  statusCode: number | null
+  hsts: SslHsts
+  contentSecurityPolicy: boolean
+  xFrameOptions: string | null
+  xContentTypeOptions: boolean
+  referrerPolicy: string | null
+  server: string | null
+  error: string | null           // why the HTTP probe failed, when fetched=false
+}
+
+/** Certificate revocation status, learned from an OCSP response stapled to the handshake. */
+export type OcspStatus = 'good' | 'revoked' | 'unknown' | 'not-stapled' | 'error'
+export interface SslOcsp {
+  stapled: boolean               // server stapled an OCSP response during the handshake
+  status: OcspStatus
+  revokedAt: string | null       // ISO, when status === 'revoked'
+  producedAt: string | null      // ISO, when the responder signed the response
+  detail: string | null
+}
+
 /** Change vs the previous scan of the same host+ip+port. */
 export interface SslDiff {
   previousScanAt: number | null
@@ -712,6 +742,8 @@ export interface SslScanResult {
   ciphers: TlsCipher[]
   negotiatedProtocol: TlsProtocol | null
   negotiatedCipher: string | null
+  securityHeaders: SslSecurityHeaders | null  // HTTP-layer headers (HSTS etc.)
+  ocsp: SslOcsp | null           // revocation status from stapled OCSP
   issues: SslIssue[]
   diff: SslDiff | null
   startedAt: number              // Date.now()
@@ -731,6 +763,25 @@ export interface SslScanRecord {
   certSubject: string | null
   certValidTo: string | null     // ISO
   result: SslScanResult          // full result, so a history click restores it without rescanning
+}
+
+/** An endpoint the user is watching for certificate expiry / config drift. */
+export interface SslWatchEntry {
+  id: string
+  host: string
+  ip: string
+  port: number
+  addedAt: number
+  lastGrade: SslGrade | null
+  lastScannedAt: number | null   // epoch ms of the most recent scan we recorded
+  certValidTo: string | null     // ISO
+  certSubject: string | null
+}
+
+export interface SslWatchAddPayload {
+  host: string
+  ip: string
+  port: number
 }
 
 export interface SslResolvePayload {

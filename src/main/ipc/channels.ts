@@ -75,6 +75,9 @@ export const IPC = {
   SSL_HISTORY_GET: 'ssl:historyGet',
   SSL_HISTORY_CLEAR: 'ssl:historyClear',
   SSL_HISTORY_REMOVE: 'ssl:historyRemove',
+  SSL_WATCH_GET: 'ssl:watchGet',
+  SSL_WATCH_ADD: 'ssl:watchAdd',
+  SSL_WATCH_REMOVE: 'ssl:watchRemove',
 
   // SSL scan (main → renderer push)
   SSL_PROGRESS: 'ssl:progress',

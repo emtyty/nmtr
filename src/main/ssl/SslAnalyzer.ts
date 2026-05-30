@@ -21,6 +21,7 @@
  * of falsely reporting the server doesn't support them.
  */
 import * as tls from 'tls'
+import * as https from 'https'
 import { isIP } from 'net'
 import type { PeerCertificate, DetailedPeerCertificate } from 'tls'
 import type { BrowserWindow } from 'electron'
@@ -39,6 +40,9 @@ import type {
   SslGrade,
   SslIssue,
   SslIssueSeverity,
+  SslSecurityHeaders,
+  SslOcsp,
+  OcspStatus,
   SslScanProgressEvent,
   SslScanDoneEvent
 } from '../../shared/types'
@@ -161,6 +165,101 @@ function extractSignatureAlgorithm(der: Buffer): string {
   }
 }
 
+// ── OCSP staple parsing ──────────────────────────────────────────────────────
+//
+// The server may staple a DER-encoded OCSPResponse during the handshake. We walk
+// it far enough to read the single cert's status (good / revoked / unknown) and,
+// when revoked, the revocation time. Anything we can't parse degrades to 'unknown'
+// rather than guessing.
+
+/** Direct children of a constructed TLV, in order. */
+function tlvChildren(buf: Buffer, parent: Tlv): Tlv[] {
+  const out: Tlv[] = []
+  let off = parent.contentStart
+  while (off < parent.end && off < buf.length) {
+    const t = readTlv(buf, off)
+    out.push(t)
+    if (t.end <= off) break  // malformed — avoid an infinite loop
+    off = t.end
+  }
+  return out
+}
+
+/** ASN.1 GeneralizedTime ("YYYYMMDDHHMMSSZ") / UTCTime ("YYMMDDHHMMSSZ") → ISO. */
+function parseAsn1Time(buf: Buffer, t: Tlv): string | null {
+  const s = buf.subarray(t.contentStart, t.end).toString('ascii')
+  let m: RegExpMatchArray | null
+  if ((m = s.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/))) {
+    return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`
+  }
+  if ((m = s.match(/^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/))) {
+    const yy = parseInt(m[1], 10)
+    const year = yy >= 50 ? 1900 + yy : 2000 + yy
+    return `${year}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`
+  }
+  return null
+}
+
+const OCSP_BASIC_OID = '1.3.6.1.5.5.7.48.1.1'
+
+/**
+ * Parse a stapled OCSPResponse buffer down to the leaf's revocation status.
+ *   OCSPResponse ::= SEQUENCE { responseStatus ENUMERATED, responseBytes [0] ... }
+ *   ResponseBytes ::= SEQUENCE { responseType OID, response OCTET STRING(BasicOCSPResponse) }
+ *   BasicOCSPResponse ::= SEQUENCE { tbsResponseData ResponseData, ... }
+ *   ResponseData ::= SEQUENCE { [version], responderID, producedAt, responses SEQUENCE OF SingleResponse, ... }
+ *   SingleResponse ::= SEQUENCE { certID, certStatus CHOICE { [0] good, [1] revoked, [2] unknown }, ... }
+ */
+function parseStapledOcsp(der: Buffer): SslOcsp {
+  const fallback = (detail: string): SslOcsp =>
+    ({ stapled: true, status: 'unknown', revokedAt: null, producedAt: null, detail })
+  try {
+    const outer = readTlv(der, 0)                              // OCSPResponse SEQUENCE
+    const kids = tlvChildren(der, outer)
+    const respStatus = kids[0]                                 // ENUMERATED
+    const statusByte = der[respStatus.contentStart]
+    if (statusByte !== 0) return fallback(`OCSP responder status ${statusByte} (not "successful")`)
+
+    const responseBytes = kids.find((k) => k.tag === 0xa0)     // [0] EXPLICIT
+    if (!responseBytes) return fallback('No responseBytes in OCSP response')
+    const rbSeq = readTlv(der, responseBytes.contentStart)     // ResponseBytes SEQUENCE
+    const rbKids = tlvChildren(der, rbSeq)
+    const typeOid = readOid(der, rbKids[0].contentStart, rbKids[0].contentLen)
+    if (typeOid !== OCSP_BASIC_OID) return fallback(`Unsupported OCSP response type ${typeOid}`)
+
+    const basic = readTlv(der, rbKids[1].contentStart)         // BasicOCSPResponse SEQUENCE (inside OCTET STRING)
+    const tbs = tlvChildren(der, basic)[0]                     // ResponseData SEQUENCE
+    const tbsKids = tlvChildren(der, tbs)
+
+    // responses is the SEQUENCE OF that follows producedAt (GeneralizedTime, tag 0x18).
+    let producedAt: string | null = null
+    let responsesSeq: Tlv | null = null
+    let sawProducedAt = false
+    for (const k of tbsKids) {
+      if (k.tag === 0x18) { producedAt = parseAsn1Time(der, k); sawProducedAt = true; continue }
+      if (sawProducedAt && k.tag === 0x30) { responsesSeq = k; break }
+    }
+    if (!responsesSeq) return { stapled: true, status: 'unknown', revokedAt: null, producedAt, detail: 'No SingleResponse found' }
+
+    const first = tlvChildren(der, responsesSeq)[0]            // first SingleResponse SEQUENCE
+    const srKids = tlvChildren(der, first)                     // [0]=certID, [1]=certStatus
+    const certStatus = srKids[1]
+    // certStatus is context-tagged: [0] good, [1] revoked, [2] unknown.
+    const choice = certStatus.tag & 0x1f
+    if (choice === 0) return { stapled: true, status: 'good', revokedAt: null, producedAt, detail: null }
+    if (choice === 2) return { stapled: true, status: 'unknown', revokedAt: null, producedAt, detail: 'Responder does not know this certificate' }
+    if (choice === 1) {
+      // RevokedInfo ::= SEQUENCE { revocationTime GeneralizedTime, ... }
+      const revTime = tlvChildren(der, certStatus)[0]
+      const revokedAt = revTime ? parseAsn1Time(der, revTime) : null
+      return { stapled: true, status: 'revoked', revokedAt, producedAt, detail: 'Certificate has been revoked' }
+    }
+    return { stapled: true, status: 'unknown', revokedAt: null, producedAt, detail: null }
+  } catch (err) {
+    return fallback(`Could not parse OCSP response: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
+
 // ── Connection primitive ─────────────────────────────────────────────────────
 
 interface RunningScan { sockets: Set<tls.TLSSocket>; canceled: boolean }
@@ -171,6 +270,7 @@ interface ConnectOpts {
   ciphers?: string           // TLS ≤1.2 single-cipher probe
   ciphersuites?: string      // TLS 1.3 single-suite probe
   wantCert?: boolean
+  wantOcsp?: boolean         // request an OCSP staple during the handshake
 }
 interface ConnectOutcome {
   ok: boolean
@@ -181,6 +281,7 @@ interface ConnectOutcome {
   peerCert: DetailedPeerCertificate | null
   authorized: boolean
   authorizationError: string | null
+  ocspResponse: Buffer | null   // raw stapled OCSP response, when wantOcsp + server staples
   errorCode: string | null
   errorMessage: string | null
 }
@@ -223,9 +324,14 @@ function connectTls(
     if (opts.ciphers) options.ciphers = opts.ciphers
     // `ciphersuites` is a valid Node option but absent from some @types/node builds.
     if (opts.ciphersuites) (options as tls.ConnectionOptions & { ciphersuites?: string }).ciphersuites = opts.ciphersuites
+    // `requestOCSP` is a valid Node tls.connect option but absent from some @types/node builds.
+    if (opts.wantOcsp) (options as tls.ConnectionOptions & { requestOCSP?: boolean }).requestOCSP = true
 
     let socket: tls.TLSSocket
     let settled = false
+    // The 'OCSPResponse' event fires mid-handshake, before the secureConnect
+    // callback — stash the staple so we can hand it back with the outcome.
+    let ocspResponse: Buffer | null = null
     const finish = (o: Partial<ConnectOutcome>): void => {
       if (settled) return
       settled = true
@@ -235,7 +341,7 @@ function connectTls(
       }
       resolve({
         ok: false, protocol: null, cipherName: null, cipherStd: null, cipherBits: null, peerCert: null,
-        authorized: false, authorizationError: null, errorCode: null, errorMessage: null, ...o
+        authorized: false, authorizationError: null, ocspResponse: null, errorCode: null, errorMessage: null, ...o
       })
     }
 
@@ -250,9 +356,11 @@ function connectTls(
           cipherBits: cipher?.bits ?? null,
           peerCert: opts.wantCert ? socket.getPeerCertificate(true) : null,
           authorized: socket.authorized,
-          authorizationError: socket.authorizationError ? String(socket.authorizationError) : null
+          authorizationError: socket.authorizationError ? String(socket.authorizationError) : null,
+          ocspResponse
         })
       })
+      if (opts.wantOcsp) socket.on('OCSPResponse', (resp: Buffer) => { ocspResponse = resp })
     } catch (err) {
       // Synchronous failures: unknown cipher/protocol not compiled into OpenSSL.
       const e = err as NodeJS.ErrnoException
@@ -264,6 +372,75 @@ function connectTls(
     socket.setTimeout(CONNECT_TIMEOUT_MS, () => finish({ errorCode: 'ETIMEDOUT', errorMessage: 'Connection timed out' }))
     socket.on('error', (err: NodeJS.ErrnoException) => finish({ errorCode: err.code ?? 'ERR', errorMessage: err.message }))
     socket.on('close', () => finish({ errorCode: 'CLOSED', errorMessage: 'Connection closed before handshake' }))
+  })
+}
+
+// ── HTTP security headers ─────────────────────────────────────────────────────
+
+function parseHsts(raw: string | undefined): SslSecurityHeaders['hsts'] {
+  if (!raw) return { present: false, maxAge: null, includeSubDomains: false, preload: false, raw: null }
+  const maxAgeMatch = raw.match(/max-age\s*=\s*"?(\d+)"?/i)
+  return {
+    present: true,
+    maxAge: maxAgeMatch ? parseInt(maxAgeMatch[1], 10) : null,
+    includeSubDomains: /includeSubDomains/i.test(raw),
+    preload: /preload/i.test(raw),
+    raw
+  }
+}
+
+function firstHeader(v: string | string[] | undefined): string | null {
+  if (v === undefined) return null
+  return Array.isArray(v) ? (v[0] ?? null) : v
+}
+
+/**
+ * Fetch HTTP security headers with a single HTTPS GET to the endpoint. Connects
+ * by IP (with SNI/Host set to the real host) so it audits the same endpoint the
+ * TLS scan did. Never throws — failures surface in `fetched: false` + `error`.
+ */
+function fetchSecurityHeaders(ip: string, host: string, port: number): Promise<SslSecurityHeaders> {
+  return new Promise((resolve) => {
+    const empty = (error: string | null): SslSecurityHeaders => ({
+      fetched: false, statusCode: null,
+      hsts: { present: false, maxAge: null, includeSubDomains: false, preload: false, raw: null },
+      contentSecurityPolicy: false, xFrameOptions: null, xContentTypeOptions: false,
+      referrerPolicy: null, server: null, error
+    })
+    let settled = false
+    const done = (v: SslSecurityHeaders): void => { if (!settled) { settled = true; resolve(v) } }
+
+    const req = https.request(
+      {
+        host: ip,
+        port,
+        servername: isIP(host) ? undefined : host,
+        headers: { Host: host, 'User-Agent': 'nmtr-ssl-scan', Accept: '*/*', Connection: 'close' },
+        method: 'GET',
+        path: '/',
+        rejectUnauthorized: false,
+        timeout: CONNECT_TIMEOUT_MS
+      },
+      (res) => {
+        const h = res.headers
+        const hstsRaw = firstHeader(h['strict-transport-security'])
+        done({
+          fetched: true,
+          statusCode: res.statusCode ?? null,
+          hsts: parseHsts(hstsRaw ?? undefined),
+          contentSecurityPolicy: h['content-security-policy'] !== undefined,
+          xFrameOptions: firstHeader(h['x-frame-options']),
+          xContentTypeOptions: /nosniff/i.test(firstHeader(h['x-content-type-options']) ?? ''),
+          referrerPolicy: firstHeader(h['referrer-policy']),
+          server: firstHeader(h.server),
+          error: null
+        })
+        res.destroy()  // headers are all we need
+      }
+    )
+    req.on('error', (e: Error) => done(empty(e.message)))
+    req.on('timeout', () => { req.destroy(); done(empty('HTTP request timed out')) })
+    req.end()
   })
 }
 
@@ -401,6 +578,13 @@ interface GradeInput {
   chainTrusted: boolean
   protocols: TlsProtocolResult[]
   ciphers: TlsCipher[]
+  securityHeaders: SslSecurityHeaders | null
+  ocsp: SslOcsp | null
+}
+
+/** HSTS counts only when present with a non-trivial max-age (≥ 1 day). */
+function hasStrongHsts(h: SslSecurityHeaders | null): boolean {
+  return Boolean(h?.hsts.present && (h.hsts.maxAge ?? 0) >= 86_400)
 }
 
 function weakKey(c: SslCertificate): boolean {
@@ -413,6 +597,8 @@ function computeGrade(r: GradeInput): SslGrade {
   if (!r.certificate) return 'F'
   if (!r.hostnameMatch) return 'M'
   if (r.certificate.expired || r.certificate.notYetValid || r.certificate.selfSigned || !r.chainTrusted) return 'T'
+  // A confirmed revocation is a trust failure, just like an untrusted chain.
+  if (r.ocsp?.status === 'revoked') return 'T'
 
   const enabled = new Set(r.protocols.filter((p) => p.support === 'enabled').map((p) => p.protocol))
   const hasInsecureCipher = r.ciphers.some((c) => c.strength === 'insecure')
@@ -425,8 +611,10 @@ function computeGrade(r: GradeInput): SslGrade {
   if (hasWeakCipher || noFs) grade = worse(grade, 'B')
   if (/sha1|md5/i.test(r.certificate.signatureAlgorithm)) grade = worse(grade, 'C')
 
+  // A+ also requires HSTS, mirroring SSL Labs (HSTS is the gate from A to A+).
   if (
     grade === 'A' &&
+    hasStrongHsts(r.securityHeaders) &&
     enabled.has('TLSv1.3') &&
     !enabled.has('SSLv3') && !enabled.has('TLSv1.0') && !enabled.has('TLSv1.1') &&
     r.ciphers.length > 0 && r.ciphers.every((c) => c.strength === 'strong' && c.forwardSecrecy)
@@ -463,6 +651,22 @@ function collectIssues(r: GradeInput): SslIssue[] {
   for (const cip of r.ciphers.filter((x) => x.strength === 'insecure')) add('critical', `Insecure cipher: ${cip.name}`, cip.note ?? 'This cipher suite is insecure.')
   for (const cip of r.ciphers.filter((x) => x.strength === 'weak')) add('medium', `Weak cipher: ${cip.name}`, cip.note ?? 'This cipher suite is weak.')
   if (r.ciphers.some((x) => !x.forwardSecrecy)) add('medium', 'No forward secrecy', 'One or more cipher suites do not provide forward secrecy.')
+
+  // OCSP revocation (from the stapled response, when present).
+  if (r.ocsp?.status === 'revoked') {
+    add('critical', 'Certificate revoked', r.ocsp.revokedAt ? `Revoked on ${r.ocsp.revokedAt} per the stapled OCSP response.` : 'The stapled OCSP response reports this certificate as revoked.')
+  } else if (r.ocsp?.status === 'unknown' && r.ocsp.stapled) {
+    add('low', 'OCSP status unknown', r.ocsp.detail ?? 'The stapled OCSP response did not confirm the certificate status.')
+  }
+
+  // HTTP security headers (only when we actually reached the HTTP layer).
+  if (r.securityHeaders?.fetched) {
+    const sh = r.securityHeaders
+    if (!sh.hsts.present) add('low', 'No HSTS', 'No Strict-Transport-Security header — clients may connect over plaintext HTTP first.')
+    else if ((sh.hsts.maxAge ?? 0) < 86_400) add('low', 'Weak HSTS max-age', `Strict-Transport-Security max-age is only ${sh.hsts.maxAge ?? 0}s; 1 year (31536000) is recommended.`)
+    if (!sh.xContentTypeOptions) add('info', 'No X-Content-Type-Options', 'Missing "X-Content-Type-Options: nosniff" header.')
+    if (!sh.contentSecurityPolicy) add('info', 'No Content-Security-Policy', 'No Content-Security-Policy header was sent.')
+  }
 
   return issues
 }
@@ -510,16 +714,16 @@ export async function startSslScan(scanId: string, config: SslScanConfig, win: B
       result: {
         scanId, host, ip, port, grade: 'F', hostnameMatch: false, chainTrusted: false,
         trustError: error, certificate: null, chain: [], protocols: [], ciphers: [],
-        negotiatedProtocol: null, negotiatedCipher: null, issues: [], diff: null,
-        startedAt, durationMs: Date.now() - startedAt, error
+        negotiatedProtocol: null, negotiatedCipher: null, securityHeaders: null, ocsp: null,
+        issues: [], diff: null, startedAt, durationMs: Date.now() - startedAt, error
       }
     })
   }
 
   try {
-    // 1. Baseline connection — captures cert chain, trust, and negotiated suite.
+    // 1. Baseline connection — captures cert chain, trust, negotiated suite, and OCSP staple.
     emitProgress(win, { scanId, percent: 2, message: `Connecting to ${ip}:${port}…` })
-    const baseline = await connectTls(ip, host, port, { wantCert: true }, scan)
+    const baseline = await connectTls(ip, host, port, { wantCert: true, wantOcsp: true }, scan)
     if (scan.canceled) return fail('Scan canceled.')
     if (!baseline.ok || !baseline.peerCert || !baseline.peerCert.raw) {
       return fail(baseline.errorMessage ?? `Could not establish a TLS connection to ${ip}:${port}.`)
@@ -536,6 +740,13 @@ export async function startSslScan(scanId: string, config: SslScanConfig, win: B
     }
     const negotiatedProtocol = normaliseProtocol(baseline.protocol)
     const negotiatedCipher = baseline.cipherName
+    const ocsp: SslOcsp = baseline.ocspResponse
+      ? parseStapledOcsp(baseline.ocspResponse)
+      : { stapled: false, status: 'not-stapled', revokedAt: null, producedAt: null, detail: 'The server did not staple an OCSP response.' }
+
+    // 1b. HTTP security headers (HSTS etc.) — independent of the TLS probes below.
+    emitProgress(win, { scanId, percent: 6, message: 'Fetching HTTP security headers…' })
+    const headersPromise = fetchSecurityHeaders(ip, host, port)
 
     // 2. Protocol probing.
     const protocols: TlsProtocolResult[] = []
@@ -599,7 +810,8 @@ export async function startSslScan(scanId: string, config: SslScanConfig, win: B
     if (scan.canceled) return fail('Scan canceled.')
 
     // 4. Grade + issues.
-    const gradeInput: GradeInput = { certificate, hostnameMatch, chainTrusted, protocols, ciphers }
+    const securityHeaders = await headersPromise
+    const gradeInput: GradeInput = { certificate, hostnameMatch, chainTrusted, protocols, ciphers, securityHeaders, ocsp }
     const grade = computeGrade(gradeInput)
     const issues = collectIssues(gradeInput)
 
@@ -607,6 +819,7 @@ export async function startSslScan(scanId: string, config: SslScanConfig, win: B
       scanId, host, ip, port, grade, hostnameMatch, chainTrusted,
       trustError: chainTrusted ? null : baseline.authorizationError,
       certificate, chain, protocols, ciphers, negotiatedProtocol, negotiatedCipher,
+      securityHeaders, ocsp,
       issues, diff: null, startedAt, durationMs: Date.now() - startedAt, error: null
     }
 

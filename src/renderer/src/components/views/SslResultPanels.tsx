@@ -1,6 +1,6 @@
 import {
   ShieldCheck, ShieldAlert, Clock, Key, FileSignature, Fingerprint, Link2,
-  ArrowUpRight, RefreshCw, AlertTriangle
+  ArrowUpRight, RefreshCw, AlertTriangle, ShieldX, ShieldQuestion, Globe2, Check, X
 } from 'lucide-react'
 import type {
   SslScanResult,
@@ -11,7 +11,9 @@ import type {
   SslIssue,
   SslIssueSeverity,
   SslGrade,
-  SslDiff
+  SslDiff,
+  SslOcsp,
+  SslSecurityHeaders
 } from '@shared/types'
 
 // ── Grade badge ────────────────────────────────────────────────────────────
@@ -250,6 +252,88 @@ export function IssuesPanel({ issues }: { issues: SslIssue[] }): React.JSX.Eleme
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+// ── OCSP revocation badge ─────────────────────────────────────────────────────
+
+const OCSP_STYLE: Record<SslOcsp['status'], { label: string; cls: string; Icon: typeof ShieldCheck }> = {
+  good: { label: 'not revoked', cls: 'text-accent-green', Icon: ShieldCheck },
+  revoked: { label: 'REVOKED', cls: 'text-accent-red', Icon: ShieldX },
+  unknown: { label: 'OCSP unknown', cls: 'text-accent-yellow', Icon: ShieldQuestion },
+  'not-stapled': { label: 'OCSP not stapled', cls: 'text-fg-subtle', Icon: ShieldQuestion },
+  error: { label: 'OCSP error', cls: 'text-fg-subtle', Icon: ShieldQuestion }
+}
+
+export function OcspBadge({ ocsp }: { ocsp: SslOcsp | null }): React.JSX.Element | null {
+  if (!ocsp) return null
+  const s = OCSP_STYLE[ocsp.status]
+  return (
+    <span className={`inline-flex items-center gap-1 ${s.cls}`} title={ocsp.detail ?? undefined}>
+      <s.Icon className="w-3.5 h-3.5" />
+      {s.label}{ocsp.status === 'revoked' && ocsp.revokedAt ? ` (${fmtDate(ocsp.revokedAt)})` : ''}
+    </span>
+  )
+}
+
+// ── HTTP security headers ─────────────────────────────────────────────────────
+
+function HeaderRow({ ok, label, children }: { ok: boolean; label: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div className="flex gap-3 px-3 py-2 border-b border-border-muted/40 last:border-0">
+      <span className="flex items-center gap-1.5 w-44 shrink-0 text-[12px] text-fg-subtle">
+        {ok
+          ? <Check className="w-3.5 h-3.5 text-accent-green" />
+          : <X className="w-3.5 h-3.5 text-accent-yellow" />}
+        {label}
+      </span>
+      <span className="flex-1 text-fg-default font-mono text-[12.5px] break-all">{children}</span>
+    </div>
+  )
+}
+
+export function SecurityHeadersPanel({ headers }: { headers: SslSecurityHeaders | null }): React.JSX.Element | null {
+  if (!headers) return null
+  return (
+    <div className="border border-border-default rounded-lg overflow-hidden bg-canvas-inset">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border-muted bg-canvas-subtle">
+        <Globe2 className="w-4 h-4 text-accent-blue" />
+        <span className="text-[13px] font-semibold text-fg-default">HTTP security headers</span>
+        {headers.fetched && headers.statusCode !== null && (
+          <span className="text-[12px] font-mono text-fg-subtle">HTTP {headers.statusCode}</span>
+        )}
+        {headers.server && <span className="ml-auto text-[12px] font-mono text-fg-subtle">{headers.server}</span>}
+      </div>
+      {!headers.fetched ? (
+        <p className="px-3 py-3 text-[12px] text-fg-subtle">
+          Could not fetch HTTP headers{headers.error ? `: ${headers.error}` : '.'}
+        </p>
+      ) : (
+        <>
+          <HeaderRow ok={headers.hsts.present} label="HSTS">
+            {headers.hsts.present
+              ? <span className="text-fg-muted">
+                  max-age={headers.hsts.maxAge ?? '?'}
+                  {headers.hsts.includeSubDomains && <span className="text-accent-green"> · includeSubDomains</span>}
+                  {headers.hsts.preload && <span className="text-accent-green"> · preload</span>}
+                </span>
+              : <span className="text-fg-subtle">not set</span>}
+          </HeaderRow>
+          <HeaderRow ok={headers.contentSecurityPolicy} label="Content-Security-Policy">
+            {headers.contentSecurityPolicy ? 'present' : <span className="text-fg-subtle">not set</span>}
+          </HeaderRow>
+          <HeaderRow ok={Boolean(headers.xFrameOptions)} label="X-Frame-Options">
+            {headers.xFrameOptions ?? <span className="text-fg-subtle">not set</span>}
+          </HeaderRow>
+          <HeaderRow ok={headers.xContentTypeOptions} label="X-Content-Type-Options">
+            {headers.xContentTypeOptions ? 'nosniff' : <span className="text-fg-subtle">not set</span>}
+          </HeaderRow>
+          <HeaderRow ok={Boolean(headers.referrerPolicy)} label="Referrer-Policy">
+            {headers.referrerPolicy ?? <span className="text-fg-subtle">not set</span>}
+          </HeaderRow>
+        </>
+      )}
     </div>
   )
 }

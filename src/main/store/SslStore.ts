@@ -1,9 +1,10 @@
 import Store from 'electron-store'
 import { randomUUID } from 'crypto'
-import type { SslScanRecord, SslScanResult, SslDiff } from '../../shared/types'
+import type { SslScanRecord, SslScanResult, SslDiff, SslWatchEntry } from '../../shared/types'
 
 interface SslStoreSchema {
   records: SslScanRecord[]
+  watchlist: SslWatchEntry[]
 }
 
 // Lazy init — defers the sync file read out of the startup path.
@@ -12,7 +13,7 @@ function store(): Store<SslStoreSchema> {
   if (!_store) {
     _store = new Store<SslStoreSchema>({
       name: 'nmtr-ssl',
-      defaults: { records: [] }
+      defaults: { records: [], watchlist: [] }
     })
   }
   return _store
@@ -45,6 +46,24 @@ function diffResults(prev: SslScanResult, next: SslScanResult, previousAt: numbe
 
 const sameEndpoint = (r: SslScanRecord, result: SslScanResult): boolean =>
   r.host === result.host && r.ip === result.ip && r.port === result.port
+
+const sameWatch = (w: SslWatchEntry, e: { host: string; ip: string; port: number }): boolean =>
+  w.host === e.host && w.ip === e.ip && w.port === e.port
+
+/** Refresh any watchlist entry matching this result with the freshest scan data. */
+function refreshWatch(records: SslWatchEntry[], result: SslScanResult): SslWatchEntry[] {
+  return records.map((w) =>
+    sameWatch(w, result)
+      ? {
+          ...w,
+          lastGrade: result.grade,
+          lastScannedAt: Date.now(),
+          certValidTo: result.certificate?.validTo ?? w.certValidTo,
+          certSubject: result.certificate?.subject ?? w.certSubject
+        }
+      : w
+  )
+}
 
 export const SslStore = {
   getAll(): SslScanRecord[] {
@@ -89,6 +108,42 @@ export const SslStore = {
     if (records.length > MAX_RECORDS) records.splice(MAX_RECORDS)
     s.set('records', records)
 
+    // Keep any watchlist entry for this endpoint in sync with the latest scan.
+    s.set('watchlist', refreshWatch(s.get('watchlist'), result))
+
     return diff
+  },
+
+  // ── Watchlist ──────────────────────────────────────────────────────────────
+
+  watchGetAll(): SslWatchEntry[] {
+    return store().get('watchlist')
+  },
+
+  /** Add an endpoint to the watchlist (no-op if already watched). Returns the full list. */
+  watchAdd(entry: { host: string; ip: string; port: number }, seed?: SslScanResult): SslWatchEntry[] {
+    const s = store()
+    const list = s.get('watchlist')
+    if (list.some((w) => sameWatch(w, entry))) return list
+    list.unshift({
+      id: randomUUID(),
+      host: entry.host,
+      ip: entry.ip,
+      port: entry.port,
+      addedAt: Date.now(),
+      lastGrade: seed?.grade ?? null,
+      lastScannedAt: seed ? Date.now() : null,
+      certValidTo: seed?.certificate?.validTo ?? null,
+      certSubject: seed?.certificate?.subject ?? null
+    })
+    s.set('watchlist', list)
+    return list
+  },
+
+  watchRemove(id: string): SslWatchEntry[] {
+    const s = store()
+    const list = s.get('watchlist').filter((w) => w.id !== id)
+    s.set('watchlist', list)
+    return list
   }
 }

@@ -48,6 +48,8 @@ import type {
   SslScanCancelPayload,
   SslExportPayload,
   SslScanRecord,
+  SslWatchEntry,
+  SslWatchAddPayload,
   SslScanProgressEvent,
   SslScanDoneEvent,
   OpenExternalPayload,
@@ -167,6 +169,12 @@ const nmtrAPI = {
     ipcRenderer.invoke(IPC.SSL_HISTORY_CLEAR),
   sslHistoryRemove: (id: string): Promise<void> =>
     ipcRenderer.invoke(IPC.SSL_HISTORY_REMOVE, id),
+  sslWatchGet: (): Promise<SslWatchEntry[]> =>
+    ipcRenderer.invoke(IPC.SSL_WATCH_GET),
+  sslWatchAdd: (payload: SslWatchAddPayload): Promise<SslWatchEntry[]> =>
+    ipcRenderer.invoke(IPC.SSL_WATCH_ADD, payload),
+  sslWatchRemove: (id: string): Promise<SslWatchEntry[]> =>
+    ipcRenderer.invoke(IPC.SSL_WATCH_REMOVE, id),
   onSslProgress: (cb: (e: SslScanProgressEvent) => void): Unsubscribe =>
     on(IPC.SSL_PROGRESS, cb),
   onSslDone: (cb: (e: SslScanDoneEvent) => void): Unsubscribe =>

@@ -45,6 +45,21 @@ function toText(r: SslScanResult): string {
     lines.push(`SHA-256:    ${c.sha256Fingerprint}`)
     lines.push('')
   }
+  if (r.ocsp) {
+    lines.push(';; Revocation (OCSP)')
+    lines.push(`Stapled:    ${r.ocsp.stapled ? 'yes' : 'no'}`)
+    lines.push(`Status:     ${r.ocsp.status}${r.ocsp.revokedAt ? ` (revoked ${r.ocsp.revokedAt})` : ''}`)
+    lines.push('')
+  }
+  if (r.securityHeaders?.fetched) {
+    const sh = r.securityHeaders
+    lines.push(';; HTTP security headers')
+    lines.push(`HSTS:       ${sh.hsts.present ? `max-age=${sh.hsts.maxAge ?? '?'}${sh.hsts.includeSubDomains ? '; includeSubDomains' : ''}${sh.hsts.preload ? '; preload' : ''}` : 'absent'}`)
+    lines.push(`CSP:        ${sh.contentSecurityPolicy ? 'present' : 'absent'}`)
+    lines.push(`X-Frame-Options:        ${sh.xFrameOptions ?? 'absent'}`)
+    lines.push(`X-Content-Type-Options: ${sh.xContentTypeOptions ? 'nosniff' : 'absent'}`)
+    lines.push('')
+  }
   lines.push(';; Protocols')
   for (const p of r.protocols) lines.push(`${p.protocol.padEnd(9)} ${p.support}${p.note ? `  (${p.note})` : ''}`)
   lines.push('')
@@ -80,6 +95,17 @@ function toCsv(r: SslScanResult): string {
     row('certificate', 'key', `${c.keyType} ${c.keyBits ?? '?'}`)
     row('certificate', 'signature', c.signatureAlgorithm)
     row('certificate', 'sha256', c.sha256Fingerprint)
+  }
+  if (r.ocsp) {
+    row('ocsp', 'stapled', r.ocsp.stapled ? 'yes' : 'no')
+    row('ocsp', 'status', r.ocsp.revokedAt ? `${r.ocsp.status} (${r.ocsp.revokedAt})` : r.ocsp.status)
+  }
+  if (r.securityHeaders?.fetched) {
+    const sh = r.securityHeaders
+    row('headers', 'hsts', sh.hsts.present ? `max-age=${sh.hsts.maxAge ?? '?'}${sh.hsts.includeSubDomains ? ' includeSubDomains' : ''}${sh.hsts.preload ? ' preload' : ''}` : 'absent')
+    row('headers', 'csp', sh.contentSecurityPolicy ? 'present' : 'absent')
+    row('headers', 'x-frame-options', sh.xFrameOptions ?? 'absent')
+    row('headers', 'x-content-type-options', sh.xContentTypeOptions ? 'nosniff' : 'absent')
   }
   for (const p of r.protocols) row('protocol', p.protocol, p.support)
   for (const c of r.ciphers) row('cipher', `${c.protocol} ${c.name}`, `${c.strength} ${c.bits ?? '?'}b${c.forwardSecrecy ? ' FS' : ''}`)
@@ -144,7 +170,15 @@ function toHtml(r: SslScanResult): string {
 </head>
 <body>
 <h1><span class="grade">${esc(r.grade)}</span> nmtr SSL scan of ${esc(r.host)} (${esc(r.ip)}:${r.port}) &nbsp;·&nbsp; ${new Date().toUTCString()}</h1>
-<section><h2>Trust</h2><table><tr><td>Chain trusted</td><td>${r.chainTrusted ? 'yes' : 'no'}</td></tr><tr><td>Hostname match</td><td>${r.hostnameMatch ? 'yes' : 'no'}</td></tr></table></section>
+<section><h2>Trust</h2><table><tr><td>Chain trusted</td><td>${r.chainTrusted ? 'yes' : 'no'}</td></tr><tr><td>Hostname match</td><td>${r.hostnameMatch ? 'yes' : 'no'}</td></tr>${
+    r.ocsp ? `<tr><td>OCSP (revocation)</td><td>${esc(r.ocsp.status)}${r.ocsp.revokedAt ? ` — revoked ${esc(r.ocsp.revokedAt)}` : ''}${r.ocsp.stapled ? '' : ' (not stapled)'}</td></tr>` : ''
+  }</table></section>
+${r.securityHeaders?.fetched ? `<section><h2>HTTP security headers</h2><table>
+    <tr><td>HSTS</td><td class="mono">${r.securityHeaders.hsts.present ? esc(r.securityHeaders.hsts.raw ?? '') : '<span class="note">absent</span>'}</td></tr>
+    <tr><td>Content-Security-Policy</td><td>${r.securityHeaders.contentSecurityPolicy ? 'present' : '<span class="note">absent</span>'}</td></tr>
+    <tr><td>X-Frame-Options</td><td class="mono">${esc(r.securityHeaders.xFrameOptions ?? '') || '<span class="note">absent</span>'}</td></tr>
+    <tr><td>X-Content-Type-Options</td><td>${r.securityHeaders.xContentTypeOptions ? 'nosniff' : '<span class="note">absent</span>'}</td></tr>
+  </table></section>` : ''}
 <section><h2>Certificate</h2><table>${certRows}</table></section>
 <section><h2>Protocols</h2><table><thead><tr><th>Protocol</th><th>Support</th><th>Note</th></tr></thead><tbody>${protoRows}</tbody></table></section>
 <section><h2>Cipher suites</h2><table><thead><tr><th>Protocol</th><th>Cipher</th><th>Bits</th><th>FS</th><th>Strength</th></tr></thead><tbody>${cipherRows || '<tr><td colspan="5">None detected</td></tr>'}</tbody></table></section>

@@ -47,6 +47,7 @@ import type {
   SslScanStartPayload,
   SslScanCancelPayload,
   SslExportPayload,
+  SslWatchAddPayload,
   OpenExternalPayload
 } from '../../shared/types'
 
@@ -375,6 +376,18 @@ export function registerHandlers(win: BrowserWindow): void {
 
   ipcMain.handle(IPC.SSL_HISTORY_REMOVE, (_e, id: string) => {
     SslStore.remove(id)
+  })
+
+  ipcMain.handle(IPC.SSL_WATCH_GET, () => {
+    return SslStore.watchGetAll()
+  })
+
+  ipcMain.handle(IPC.SSL_WATCH_ADD, (_e, payload: SslWatchAddPayload) => {
+    return SslStore.watchAdd({ host: payload.host, ip: payload.ip, port: payload.port })
+  })
+
+  ipcMain.handle(IPC.SSL_WATCH_REMOVE, (_e, id: string) => {
+    return SslStore.watchRemove(id)
   })
 
   ipcMain.handle(IPC.SSL_EXPORT, async (_e, payload: SslExportPayload) => {
