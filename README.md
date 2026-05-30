@@ -1,6 +1,6 @@
 # {NMTR} — Network Diagnostic Tool
 
-A modern rewrite of WinMTR as an Electron desktop application for Windows. Combines continuous traceroute and real-time ping into a live dashboard with per-hop statistics, geolocation, session recording, and trace history.
+A Windows network-diagnostics suite, built as an Electron desktop app. At its core is a modern rewrite of WinMTR — continuous traceroute and real-time ping in a live dashboard with per-hop statistics, geolocation, session recording, and trace history — surrounded by a set of self-contained tools, each in its own tab: **LAN discovery**, **port scanning** (nmap), **speed test**, **DNS** resolution + diagnostics, **TLS/SSL** auditing, and an ImmuniWeb-style **public web security scan**. Everything runs locally; the scanning tools send nothing to third-party services.
 
 ![nmtr screenshot](nmtr-ui-mockup.png)
 
@@ -26,6 +26,10 @@ A modern rewrite of WinMTR as an Electron desktop application for Windows. Combi
 - **Pause/resume live traces** — pause and resume active traces without losing session state
 - **History filter/sort/rerun** — filter and sort trace history, rerun any previous session with one click
 - **SLO alerting** — configurable alert thresholds for packet loss, RTT, and jitter; live alert stack (bottom right), desktop notifications, and alert history
+- **LAN network scan** — detects local interfaces (including VPN / Cloudflare Warp), discovers the default gateway, and runs an ARP-table + ping-sweep discovery of nearby devices with device-type classification; hand off any device to a trace, port scan, or DNS lookup in one click
+- **Port scan** — wraps a locally-installed `nmap` (TCP connect scan, `-sT`, so no admin needed) and streams live progress by parsing verbose stdout; large ranges are split across several parallel worker processes and merged, with per-port service + banner detection, scan history, and export. Surfaces a download prompt if nmap isn't installed (nothing is bundled)
+- **Speed test** — Cloudflare-backed download/upload throughput, latency, jitter, and packet-loss measurement with a live gauge and per-phase breakdown; optional TURN relay configuration for restricted networks
+- **DNS resolver** — all-record-type lookups (A/AAAA/CNAME/MX/NS/PTR/SRV/SOA/TXT/CAA/DS/DNSKEY) against a user-managed resolver list, plus diagnostics: propagation across public resolvers, email security (SPF/DMARC/DKIM/MTA-STS/BIMI), forward-confirmed reverse DNS (FCrDNS), and an iterative delegation trace (`dig +trace`); lookup history with diff-vs-previous and export
 - **SSL scan** — SSL Labs–style TLS audit: resolve a host to its IP endpoints, pick one, then probe every protocol version (SSLv3→TLS 1.3) and enumerate supported cipher suites, inspect the certificate + chain, verify trust and hostname, flag weak/insecure ciphers and protocols, and compute an A+→F grade; scan history with delete, rescan, and diff-vs-previous. Pure-Node `tls` engine — works offline and against internal IPs, no data leaves the machine
   - **Multi-IP scan** — scan every resolved endpoint at once and compare them side by side, flagging endpoints whose grade, enabled protocols, or certificate diverge (catches load-balanced nodes with drifted configs)
   - **OCSP revocation** — parses the OCSP response stapled during the handshake; a confirmed revocation drops the grade to `T` and raises a critical issue
@@ -81,12 +85,15 @@ src/
 ├── main/                # Electron main process
 │   ├── ipc/             # IPC channel constants + request handlers
 │   ├── prober/          # ProberSession, StatsAggregator, NativeEngine (ICMP FFI), PingusEngine
+│   ├── lan/             # LanScanner (interface/gateway detection, ARP + ping-sweep discovery)
+│   ├── portscan/        # PortScanner (nmap wrapper: detect, split, stream progress, parse XML)
+│   ├── dns/             # DnsResolver (raw-packet queries) + DnsDiagnostics (propagation/email/FCrDNS/delegation)
 │   ├── ssl/             # SslResolver (host → IP endpoints) + SslAnalyzer (pure-Node TLS audit)
 │   ├── pubscan/         # PubScanScanner (HTTP probe + header/cookie/CSP/tech/3rd-party analysis, grade & compliance)
 │   ├── enrichment/      # GeoIP (geojs.io over HTTPS, LRU-cached) + WHOIS fetcher
 │   ├── recording/       # Session recorder + player (.nmtr NDJSON format)
-│   ├── export/          # Text / CSV / HTML formatters
-│   ├── store/           # electron-store wrappers (AppSettings, HistoryStore)
+│   ├── export/          # Per-feature Text / CSV / HTML / JSON formatters (trace, DNS, port, SSL, pubscan)
+│   ├── store/           # electron-store wrappers (AppSettings, History, DNS, PortScan, SSL, PubScan)
 │   ├── tray/            # System tray manager
 │   ├── updater/         # Auto-updater (electron-updater)
 │   └── utils/           # Shared utilities (logo icon pixel renderer)
