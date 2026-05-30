@@ -39,6 +39,19 @@ const LanIcon = (
   </svg>
 )
 
+const WifiIcon = (
+  <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M3 7.5a11 11 0 0 1 14 0M5.5 10.5a7 7 0 0 1 9 0M8 13.5a3 3 0 0 1 4 0" strokeLinecap="round" />
+    <circle cx="10" cy="16" r="1" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+const MonitorIcon = (
+  <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M2 11h3l2 5 4-12 2 8h3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 const SpeedTestIcon = (
   <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
     <path d="M3 14a7 7 0 0 1 14 0" strokeLinecap="round" />
@@ -93,7 +106,9 @@ export function IconNav({ activeView, onNavigate }: IconNavProps): React.JSX.Ele
   const items: NavItemDef[] = [
     { kind: 'view', id: 'traces', label: 'Traces', icon: TracesIcon },
     { kind: 'view', id: 'history', label: 'History', icon: HistoryIcon },
+    { kind: 'view', id: 'monitor', label: 'Monitors', icon: MonitorIcon },
     { kind: 'view', id: 'lan', label: 'LAN', icon: LanIcon },
+    { kind: 'view', id: 'wifi', label: 'Wi-Fi', icon: WifiIcon },
     { kind: 'view', id: 'portscan', label: 'Ports', icon: PortScanIcon },
     { kind: 'view', id: 'speedtest', label: 'Speed', icon: SpeedTestIcon },
     { kind: 'view', id: 'dns', label: 'DNS', icon: DnsIcon },

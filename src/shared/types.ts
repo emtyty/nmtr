@@ -97,6 +97,9 @@ export interface AppSettings {
   maxHops: number
   resolveHostnames: boolean
   minimizeToTray: boolean
+  // App lifecycle
+  checkUpdatesOnStartup: boolean   // auto-check GitHub Releases shortly after launch
+  launchAtLogin: boolean           // register the app as a login item (OS startup)
   alertsEnabled: boolean
   alertLossPct: number
   alertRttMs: number
@@ -126,6 +129,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   maxHops: 30,
   resolveHostnames: true,
   minimizeToTray: true,
+  checkUpdatesOnStartup: true,
+  launchAtLogin: false,
   alertsEnabled: false,
   alertLossPct: 20,
   alertRttMs: 200,
@@ -990,4 +995,148 @@ export interface PubScanProgressEvent {
 export interface PubScanDoneEvent {
   scanId: string
   result: PubScanResult
+}
+
+// ─── Wi-Fi / Wireless analyzer ─────────────────────────────────────────────────
+
+export type WifiBand = '2.4 GHz' | '5 GHz' | '6 GHz' | 'unknown'
+
+/** Signal-quality bucket derived from the signal percentage / RSSI. */
+export type WifiSignalLevel = 'excellent' | 'good' | 'fair' | 'weak'
+
+/** The Wi-Fi adapter's currently-associated connection (from `netsh wlan show interfaces`). */
+export interface WifiConnection {
+  interfaceName: string        // adapter description, e.g. "Intel(R) Wi-Fi 6 AX201"
+  state: string                // "connected" | "disconnected" | …
+  ssid: string | null
+  bssid: string | null         // AP MAC the client is associated with
+  radioType: string | null     // "802.11ax" / "802.11ac" / …
+  authentication: string | null // "WPA2-Personal" / "WPA3-SAE" / "Open" …
+  cipher: string | null        // "CCMP" / "GCMP" …
+  band: WifiBand
+  channel: number | null
+  signalPercent: number | null // 0–100 as reported by netsh
+  rssiDbm: number | null       // estimated RSSI from signal % (netsh gives %, not dBm)
+  rxRateMbps: number | null    // receive link rate
+  txRateMbps: number | null    // transmit link rate
+}
+
+/** A nearby access point discovered by scanning (`netsh wlan show networks mode=bssid`). */
+export interface WifiNetwork {
+  ssid: string                 // "" for hidden networks
+  bssid: string | null
+  signalPercent: number | null
+  rssiDbm: number | null
+  band: WifiBand
+  channel: number | null
+  radioType: string | null
+  authentication: string | null
+  cipher: string | null
+  isCurrent: boolean           // true if this BSSID is the one we're associated with
+}
+
+/** Per-channel occupancy summary for the congestion chart. */
+export interface WifiChannelUsage {
+  band: WifiBand
+  channel: number
+  networkCount: number
+  strongestSignalPercent: number  // strongest AP seen on this channel
+}
+
+export interface WifiScanResult {
+  available: boolean           // false when no WLAN service / adapter / not Windows
+  reason: string | null        // why unavailable (shown to the user)
+  connection: WifiConnection | null
+  networks: WifiNetwork[]
+  channelUsage: WifiChannelUsage[]
+  scanDurationMs: number
+}
+
+export type WifiScanPayload = Record<string, never>
+
+// ─── Monitors / scheduled health checks ────────────────────────────────────────
+
+export type MonitorType = 'http' | 'tcp' | 'ping' | 'dns' | 'cert'
+
+/** Health state of a monitor after its most recent check. */
+export type MonitorStatus = 'up' | 'down' | 'degraded' | 'unknown'
+
+/** User-configurable monitor. `target` meaning depends on `type`:
+ *  http → URL · tcp/ping/cert → host (port for tcp/cert) · dns → name. */
+export interface MonitorConfig {
+  id: string
+  label: string
+  type: MonitorType
+  target: string
+  port: number | null          // tcp / cert
+  intervalSec: number          // how often to run the check
+  enabled: boolean
+  createdAt: number
+  // Thresholds (all optional; defaults applied in the engine)
+  expectStatusMin: number | null   // http: lowest acceptable status code (default 200)
+  expectStatusMax: number | null   // http: highest acceptable status code (default 399)
+  latencyWarnMs: number | null     // http/tcp/ping: degraded above this latency
+  expiryWarnDays: number | null    // cert: degraded when fewer days remain
+  dnsRecordType: string | null     // dns: record type to resolve (default 'A')
+}
+
+/** One recorded check outcome (kept in a bounded rolling log per monitor). */
+export interface MonitorResult {
+  monitorId: string
+  checkedAt: number
+  status: MonitorStatus
+  latencyMs: number | null
+  message: string | null       // human-readable detail (status code, error, cert days …)
+  value: number | null         // type-specific numeric (status code, cert days remaining …)
+}
+
+/** An up→down / recovery transition, for the incident timeline. */
+export interface MonitorIncident {
+  id: string
+  monitorId: string
+  startedAt: number
+  resolvedAt: number | null    // null while ongoing
+  status: MonitorStatus        // the failing status that opened the incident
+  reason: string | null
+}
+
+/** Rolling aggregates the renderer shows per monitor. */
+export interface MonitorStats {
+  status: MonitorStatus
+  lastCheckedAt: number | null
+  lastLatencyMs: number | null
+  lastMessage: string | null
+  uptime24hPct: number | null  // % of checks "up" in the last 24h (null if no data)
+  avgLatency24hMs: number | null
+  checks24h: number
+  recent: MonitorResult[]      // newest-last, for the sparkline (bounded)
+}
+
+/** A monitor plus its live stats — the unit the renderer renders. */
+export interface MonitorView {
+  config: MonitorConfig
+  stats: MonitorStats
+}
+
+// Renderer → main payloads
+export interface MonitorAddPayload {
+  config: Omit<MonitorConfig, 'id' | 'createdAt'>
+}
+export interface MonitorUpdatePayload {
+  id: string
+  patch: Partial<Omit<MonitorConfig, 'id' | 'createdAt'>>
+}
+
+// Main → renderer push events
+export interface MonitorResultEvent {
+  result: MonitorResult
+  stats: MonitorStats
+}
+export interface MonitorStateChangeEvent {
+  monitorId: string
+  label: string
+  from: MonitorStatus
+  to: MonitorStatus
+  reason: string | null
+  at: number
 }

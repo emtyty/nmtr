@@ -7,12 +7,15 @@ import { TracertResultModal } from './components/trace/TracertResultModal'
 import { WhoisDialog } from './components/dialogs/WhoisDialog'
 import { HistoryView } from './components/views/HistoryView'
 import { LanNetworkView } from './components/lan/LanNetworkView'
+import { WifiView } from './components/views/WifiView'
 import { SpeedTestView } from './components/views/SpeedTestView'
 import { PortScanView } from './components/views/PortScanView'
 import { DnsView } from './components/views/DnsView'
 import { SslView } from './components/views/SslView'
 import { PublicScanView } from './components/views/PublicScanView'
+import { MonitorView } from './components/views/MonitorView'
 import { useTraceSession } from './hooks/useTraceSession'
+import { useMonitors } from './hooks/useMonitors'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useSettingsStore } from './store/useSettingsStore'
 import { useUIStore } from './store/useUIStore'
@@ -31,6 +34,7 @@ export default function App(): React.JSX.Element {
 
   // Subscribe to all IPC push events → Zustand store
   useTraceSession()
+  useMonitors()
   useKeyboardShortcuts()
   useUpdater()
 
@@ -48,6 +52,10 @@ export default function App(): React.JSX.Element {
           </>
         ) : activeView === 'lan' ? (
           <LanNetworkView />
+        ) : activeView === 'wifi' ? (
+          <WifiView />
+        ) : activeView === 'monitor' ? (
+          <MonitorView />
         ) : activeView === 'portscan' ? (
           <PortScanView />
         ) : activeView === 'speedtest' ? (

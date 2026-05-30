@@ -59,6 +59,14 @@ import type {
   PubScanRecord,
   PubScanProgressEvent,
   PubScanDoneEvent,
+  WifiScanResult,
+  MonitorConfig,
+  MonitorView,
+  MonitorIncident,
+  MonitorAddPayload,
+  MonitorUpdatePayload,
+  MonitorResultEvent,
+  MonitorStateChangeEvent,
   OpenExternalPayload,
   HopUpdateEvent,
   HopsBatchEvent,
@@ -204,6 +212,30 @@ const nmtrAPI = {
     on(IPC.PUBSCAN_PROGRESS, cb),
   onPubScanDone: (cb: (e: PubScanDoneEvent) => void): Unsubscribe =>
     on(IPC.PUBSCAN_DONE, cb),
+
+  // ── Wi-Fi analyzer ─────────────────────────────────────────────────────────────
+  wifiScan: (): Promise<WifiScanResult> =>
+    ipcRenderer.invoke(IPC.WIFI_SCAN),
+
+  // ── Monitors / scheduled health checks ──────────────────────────────────────────
+  monitorList: (): Promise<MonitorView[]> =>
+    ipcRenderer.invoke(IPC.MONITOR_LIST),
+  monitorAdd: (payload: MonitorAddPayload): Promise<MonitorConfig> =>
+    ipcRenderer.invoke(IPC.MONITOR_ADD, payload),
+  monitorUpdate: (payload: MonitorUpdatePayload): Promise<MonitorConfig | undefined> =>
+    ipcRenderer.invoke(IPC.MONITOR_UPDATE, payload),
+  monitorRemove: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.MONITOR_REMOVE, id),
+  monitorRunNow: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.MONITOR_RUN_NOW, id),
+  monitorIncidents: (): Promise<MonitorIncident[]> =>
+    ipcRenderer.invoke(IPC.MONITOR_INCIDENTS),
+  monitorClearHistory: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.MONITOR_CLEAR_HISTORY, id),
+  onMonitorResult: (cb: (e: MonitorResultEvent) => void): Unsubscribe =>
+    on(IPC.MONITOR_RESULT, cb),
+  onMonitorStateChange: (cb: (e: MonitorStateChangeEvent) => void): Unsubscribe =>
+    on(IPC.MONITOR_STATE_CHANGE, cb),
 
   // ── Shell ────────────────────────────────────────────────────────────────────
   openExternal: (payload: OpenExternalPayload): Promise<void> =>

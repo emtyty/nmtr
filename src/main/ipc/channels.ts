@@ -95,6 +95,22 @@ export const IPC = {
   PUBSCAN_PROGRESS: 'pubscan:progress',
   PUBSCAN_DONE: 'pubscan:done',
 
+  // Wi-Fi analyzer (renderer → main invoke)
+  WIFI_SCAN: 'wifi:scan',
+
+  // Monitors / scheduled health checks (renderer → main invoke)
+  MONITOR_LIST: 'monitor:list',
+  MONITOR_ADD: 'monitor:add',
+  MONITOR_UPDATE: 'monitor:update',
+  MONITOR_REMOVE: 'monitor:remove',
+  MONITOR_RUN_NOW: 'monitor:runNow',
+  MONITOR_INCIDENTS: 'monitor:incidents',
+  MONITOR_CLEAR_HISTORY: 'monitor:clearHistory',
+
+  // Monitors (main → renderer push)
+  MONITOR_RESULT: 'monitor:result',
+  MONITOR_STATE_CHANGE: 'monitor:stateChange',
+
   // Shell (renderer → main invoke)
   OPEN_EXTERNAL: 'shell:openExternal',
 

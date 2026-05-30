@@ -1,6 +1,6 @@
 # {NMTR} — Network Diagnostic Tool
 
-A Windows network-diagnostics suite, built as an Electron desktop app. At its core is a modern rewrite of WinMTR — continuous traceroute and real-time ping in a live dashboard with per-hop statistics, geolocation, session recording, and trace history — surrounded by a set of self-contained tools, each in its own tab: **LAN discovery**, **port scanning** (nmap), **speed test**, **DNS** resolution + diagnostics, **TLS/SSL** auditing, and an ImmuniWeb-style **public web security scan**. Everything runs locally; the scanning tools send nothing to third-party services.
+A Windows network-diagnostics suite, built as an Electron desktop app. At its core is a modern rewrite of WinMTR — continuous traceroute and real-time ping in a live dashboard with per-hop statistics, geolocation, session recording, and trace history — surrounded by a set of self-contained tools, each in its own tab: **scheduled monitors** (background uptime checks), **LAN discovery**, **Wi-Fi analysis**, **port scanning** (nmap), **speed test**, **DNS** resolution + diagnostics, **TLS/SSL** auditing, and an ImmuniWeb-style **public web security scan**. Everything runs locally; the scanning tools send nothing to third-party services.
 
 ![nmtr screenshot](nmtr-ui-mockup.png)
 
@@ -26,7 +26,9 @@ A Windows network-diagnostics suite, built as an Electron desktop app. At its co
 - **Pause/resume live traces** — pause and resume active traces without losing session state
 - **History filter/sort/rerun** — filter and sort trace history, rerun any previous session with one click
 - **SLO alerting** — configurable alert thresholds for packet loss, RTT, and jitter; live alert stack (bottom right), desktop notifications, and alert history
+- **Monitors** — scheduled, background health checks that turn the one-shot tools into lightweight uptime monitoring. Add an **HTTP(S)** endpoint (status-code + latency assertion), **TCP** port, **ping** (ICMP), **DNS** record, or **TLS certificate expiry** check, give it an interval and thresholds, and it runs on a self-rescheduling timer in the main process. Each monitor card shows live status, 24-hour uptime %, latency, and a status-colored sparkline; status transitions open/close entries in an incident timeline and raise an in-app alert + desktop notification when something goes down or recovers. Configs, a bounded rolling result log (7-day retention), and incidents persist via electron-store; all checks are dependency-free (`http`/`net`/`dns`/`tls`/`ping`) and send nothing to a third-party service
 - **LAN network scan** — detects local interfaces (including VPN / Cloudflare Warp), discovers the default gateway, and runs an ARP-table + ping-sweep discovery of nearby devices with device-type classification; hand off any device to a trace, port scan, or DNS lookup in one click
+- **Wi-Fi analyzer** — reads the wireless adapter's current association (SSID, BSSID, band, channel, radio type, security/cipher, Rx/Tx link rate, signal % → approximate RSSI) and scans for nearby access points via the built-in `netsh wlan` commands. Surfaces a current-connection card, a per-band channel-congestion chart, and a strongest-first table of every SSID/BSSID in range; parsed entirely from stdout, nothing leaves the machine
 - **Port scan** — wraps a locally-installed `nmap` (TCP connect scan, `-sT`, so no admin needed) and streams live progress by parsing verbose stdout; large ranges are split across several parallel worker processes and merged, with per-port service + banner detection, scan history, and export. Surfaces a download prompt if nmap isn't installed (nothing is bundled)
 - **Speed test** — Cloudflare-backed download/upload throughput, latency, jitter, and packet-loss measurement with a live gauge and per-phase breakdown; optional TURN relay configuration for restricted networks
 - **DNS resolver** — all-record-type lookups (A/AAAA/CNAME/MX/NS/PTR/SRV/SOA/TXT/CAA/DS/DNSKEY) against a user-managed resolver list, plus diagnostics: propagation across public resolvers, email security (SPF/DMARC/DKIM/MTA-STS/BIMI), forward-confirmed reverse DNS (FCrDNS), and an iterative delegation trace (`dig +trace`); lookup history with diff-vs-previous and export
@@ -86,6 +88,8 @@ src/
 │   ├── ipc/             # IPC channel constants + request handlers
 │   ├── prober/          # ProberSession, StatsAggregator, NativeEngine (ICMP FFI), PingusEngine
 │   ├── lan/             # LanScanner (interface/gateway detection, ARP + ping-sweep discovery)
+│   ├── wifi/            # WifiScanner (netsh wlan: current connection + nearby AP scan)
+│   ├── monitor/        # MonitorEngine (scheduler + http/tcp/ping/dns/cert checks, incidents)
 │   ├── portscan/        # PortScanner (nmap wrapper: detect, split, stream progress, parse XML)
 │   ├── dns/             # DnsResolver (raw-packet queries) + DnsDiagnostics (propagation/email/FCrDNS/delegation)
 │   ├── ssl/             # SslResolver (host → IP endpoints) + SslAnalyzer (pure-Node TLS audit)
@@ -93,13 +97,13 @@ src/
 │   ├── enrichment/      # GeoIP (geojs.io over HTTPS, LRU-cached) + WHOIS fetcher
 │   ├── recording/       # Session recorder + player (.nmtr NDJSON format)
 │   ├── export/          # Per-feature Text / CSV / HTML / JSON formatters (trace, DNS, port, SSL, pubscan)
-│   ├── store/           # electron-store wrappers (AppSettings, History, DNS, PortScan, SSL, PubScan)
+│   ├── store/           # electron-store wrappers (AppSettings, History, DNS, PortScan, SSL, PubScan, Monitor)
 │   ├── tray/            # System tray manager
 │   ├── updater/         # Auto-updater (electron-updater)
 │   └── utils/           # Shared utilities (logo icon pixel renderer)
 ├── preload/             # contextBridge → window.nmtrAPI
 └── renderer/            # React + Tailwind UI
-    ├── store/           # Zustand stores (trace, UI, settings, recording, history)
+    ├── store/           # Zustand stores (trace, UI, settings, recording, history, monitor)
     ├── components/
     │   ├── controls/    # TraceControls, ExportMenu
     │   ├── dialogs/     # Settings, WHOIS, latency detail, tracert modal
@@ -108,7 +112,8 @@ src/
     │   ├── playback/    # Playback bar
     │   ├── trace/       # HopTable, SessionRttChart, RouteEventsPanel
     │   ├── update/      # Update banner
-    │   └── views/       # HistoryView, DnsView, PortScanView, SpeedTestView, SslView (+ SslResultPanels), PublicScanView (+ PublicScanPanels)
+    │   ├── lan/         # LanNetworkView (topology + device table)
+    │   └── views/       # HistoryView, WifiView, MonitorView, DnsView, PortScanView, SpeedTestView, SslView (+ SslResultPanels), PublicScanView (+ PublicScanPanels)
     ├── lib/             # Utilities (scrollGate — hop-table scroll locking)
     └── hooks/           # useTraceSession (IPC → store), useKeyboardShortcuts, useUpdater
 ```
