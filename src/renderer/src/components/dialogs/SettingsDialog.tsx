@@ -13,7 +13,7 @@ interface SettingsDialogProps {
 export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JSX.Element {
   const { settings, update } = useSettingsStore()
   const [draft, setDraft] = useState<AppSettings>(settings)
-  const [tab, setTab] = useState<'general' | 'dns' | 'turn'>('general')
+  const [tab, setTab] = useState<'general' | 'trace' | 'dns' | 'turn'>('general')
 
   useEffect(() => {
     if (open) {
@@ -59,7 +59,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-canvas-subtle border border-border-default rounded-lg w-[440px] flex flex-col z-50 shadow-2xl">
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-canvas-subtle border border-border-default rounded-lg w-[620px] flex flex-col z-50 shadow-2xl">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border-default">
             <Dialog.Title className="text-base font-semibold text-fg-default">Settings</Dialog.Title>
             <Dialog.Close asChild>
@@ -67,24 +67,29 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
             </Dialog.Close>
           </div>
 
-          {/* Tab bar */}
-          <div className="flex border-b border-border-default px-2">
-            {([['general', 'General'], ['dns', 'DNS List'], ['turn', 'TURN']] as const).map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  tab === id
-                    ? 'border-accent-blue text-fg-default'
-                    : 'border-transparent text-fg-muted hover:text-fg-default'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          {/* Body: left tab rail + fixed-height content. The fixed height keeps the
+              dialog the same size across tabs, so switching never resizes it. */}
+          <div className="flex h-[520px] min-h-0">
+            {/* Left tab rail */}
+            <div className="w-36 shrink-0 border-r border-border-default p-2 flex flex-col gap-1">
+              {([['general', 'General'], ['trace', 'Trace'], ['dns', 'DNS List'], ['turn', 'TURN']] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setTab(id)}
+                  className={`text-left px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    tab === id
+                      ? 'bg-accent-blue/10 text-accent-blue'
+                      : 'text-fg-muted hover:text-fg-default hover:bg-canvas-hover'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-          <div className={`flex-1 overflow-auto p-4 space-y-4 ${tab === 'general' ? '' : 'hidden'}`}>
+            {/* Tab content (scrolls within the fixed-height body) */}
+            <div className="flex-1 min-w-0 overflow-auto">
+          <div className={`p-4 space-y-4 ${tab === 'general' ? '' : 'hidden'}`}>
             {/* Theme */}
             <div>
               <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
@@ -101,6 +106,20 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
               </select>
             </div>
 
+            {/* Minimize to tray (general app behaviour) */}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={draft.minimizeToTray}
+                onChange={(e) => setProp('minimizeToTray', e.target.checked)}
+                className="w-4 h-4 accent-accent-blue"
+              />
+              <span className="text-base text-fg-default">Minimize to Tray on Close</span>
+            </label>
+          </div>
+
+          {/* Trace tab */}
+          <div className={`p-4 space-y-4 ${tab === 'trace' ? '' : 'hidden'}`}>
             {/* Default Interval */}
             <div>
               <label className="block text-xs font-semibold text-fg-muted uppercase tracking-widest mb-1.5">
@@ -168,15 +187,6 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
                 />
                 <span className="text-base text-fg-default">Resolve Hostnames</span>
               </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={draft.minimizeToTray}
-                  onChange={(e) => setProp('minimizeToTray', e.target.checked)}
-                  className="w-4 h-4 accent-accent-blue"
-                />
-                <span className="text-base text-fg-default">Minimize to Tray on Close</span>
-              </label>
             </div>
 
             {/* Runtime alerts */}
@@ -240,7 +250,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
           </div>
 
           {/* DNS List tab */}
-          <div className={`flex-1 overflow-auto p-4 space-y-3 ${tab === 'dns' ? '' : 'hidden'}`}>
+          <div className={`p-4 space-y-3 ${tab === 'dns' ? '' : 'hidden'}`}>
             <p className="text-xs text-fg-muted leading-relaxed">
               DNS resolvers offered in the <span className="text-fg-default font-medium">DNS Resolver</span> view dropdown.
               <span className="text-fg-default font-medium"> System default</span> is always available; add your own
@@ -300,7 +310,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
           </div>
 
           {/* TURN tab */}
-          <div className={`flex-1 overflow-auto p-4 space-y-4 ${tab === 'turn' ? '' : 'hidden'}`}>
+          <div className={`p-4 space-y-4 ${tab === 'turn' ? '' : 'hidden'}`}>
             <p className="text-xs text-fg-muted leading-relaxed">
               TURN relay used by the Speed Test for the <span className="text-fg-default font-medium">packet-loss</span> measurement.
               Leave blank to disable packet loss (download, upload, ping and jitter still work).
@@ -345,6 +355,8 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
                 value={draft.turnServerPass}
                 onChange={(e) => setProp('turnServerPass', e.target.value)}
               />
+            </div>
+          </div>
             </div>
           </div>
 

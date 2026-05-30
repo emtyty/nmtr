@@ -4,6 +4,7 @@ import {
   Search, Square, RefreshCw, AlertCircle, ShieldCheck, Download, Copy, History, Trash2, X, Globe
 } from 'lucide-react'
 import { useUIStore } from '../../store/useUIStore'
+import { groupByKey, GroupToggle } from '../../lib/historyGroup'
 import {
   GradeBadge, CategoryMatrix, FindingsPanel, HeadersPanel, CookiesPanel, CspPanel,
   TlsSummaryPanel, EmailPanel, TechPanel, ThirdPartyPanel, CompliancePanel, DiffStrip
@@ -34,13 +35,37 @@ function HistoryTable({
   onClear: () => void
   onDelete: (id: string) => void
 }): React.JSX.Element | null {
+  const [grouped, setGrouped] = useState(false)
   if (history.length === 0) return null
+
+  const COLS = 5
+  const renderRow = (rec: PubScanRecord): React.JSX.Element => (
+    <tr key={rec.id} onClick={() => onPick(rec)} title="Load this result"
+      className="border-b border-border-muted/40 last:border-0 hover:bg-canvas-hover/60 cursor-pointer group">
+      <td className="px-3 py-1.5 text-fg-muted whitespace-nowrap">{formatWhen(rec.scannedAt)}</td>
+      <td className="px-3 py-1.5 text-center"><GradeBadge grade={rec.grade} size="sm" /></td>
+      <td className="px-3 py-1.5 font-mono text-fg-default break-all">{rec.domain}</td>
+      <td className="px-3 py-1.5 text-center font-mono text-fg-subtle">{rec.findingCount}</td>
+      <td className="px-2 py-1.5 text-right whitespace-nowrap">
+        <button onClick={(e) => { e.stopPropagation(); onRescan(rec) }} title="Rescan"
+          className="p-1 rounded text-fg-subtle opacity-0 group-hover:opacity-100 hover:text-accent-blue hover:bg-canvas-hover transition-all">
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(rec.id) }} title="Delete this entry"
+          className="p-1 rounded text-fg-subtle opacity-0 group-hover:opacity-100 hover:text-accent-red hover:bg-canvas-hover transition-all">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </td>
+    </tr>
+  )
+
   return (
     <div className="mt-6 border-t border-border-default pt-4">
-      <div className="flex items-center gap-2 mb-2 px-1">
+      <div className="flex items-center gap-3 mb-2 px-1">
         <History className="w-3.5 h-3.5 text-fg-subtle" />
         <span className="text-[12px] font-semibold uppercase tracking-wide text-fg-subtle">Scan history</span>
         <span className="text-[12px] font-mono text-fg-subtle">{history.length}</span>
+        <GroupToggle grouped={grouped} onToggle={() => setGrouped((g) => !g)} />
         <button onClick={onClear}
           className="ml-auto inline-flex items-center gap-1 text-[12px] text-fg-subtle hover:text-accent-red transition-colors">
           <Trash2 className="w-3.5 h-3.5" /> Clear
@@ -58,25 +83,16 @@ function HistoryTable({
             </tr>
           </thead>
           <tbody>
-            {history.map((rec) => (
-              <tr key={rec.id} onClick={() => onPick(rec)} title="Load this result"
-                className="border-b border-border-muted/40 last:border-0 hover:bg-canvas-hover/60 cursor-pointer group">
-                <td className="px-3 py-1.5 text-fg-muted whitespace-nowrap">{formatWhen(rec.scannedAt)}</td>
-                <td className="px-3 py-1.5 text-center"><GradeBadge grade={rec.grade} size="sm" /></td>
-                <td className="px-3 py-1.5 font-mono text-fg-default break-all">{rec.domain}</td>
-                <td className="px-3 py-1.5 text-center font-mono text-fg-subtle">{rec.findingCount}</td>
-                <td className="px-2 py-1.5 text-right whitespace-nowrap">
-                  <button onClick={(e) => { e.stopPropagation(); onRescan(rec) }} title="Rescan"
-                    className="p-1 rounded text-fg-subtle opacity-0 group-hover:opacity-100 hover:text-accent-blue hover:bg-canvas-hover transition-all">
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); onDelete(rec.id) }} title="Delete this entry"
-                    className="p-1 rounded text-fg-subtle opacity-0 group-hover:opacity-100 hover:text-accent-red hover:bg-canvas-hover transition-all">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {grouped
+              ? groupByKey(history, (r) => r.domain).flatMap((g) => [
+                  <tr key={`h-${g.key}`} className="bg-canvas-subtle/70 border-b border-border-muted">
+                    <td colSpan={COLS} className="px-3 py-1 text-[11.5px] font-mono font-semibold text-fg-muted">
+                      {g.key} <span className="text-fg-subtle">· {g.items.length}</span>
+                    </td>
+                  </tr>,
+                  ...g.items.map(renderRow)
+                ])
+              : history.map(renderRow)}
           </tbody>
         </table>
       </div>

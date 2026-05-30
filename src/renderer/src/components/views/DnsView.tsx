@@ -4,6 +4,7 @@ import {
   Search, RefreshCw, AlertCircle, Globe, Download, Copy, Crosshair, MoreVertical,
   ChevronDown, Clock, Server, History, Trash2, X, Eye, ShieldCheck
 } from 'lucide-react'
+import { groupByKey, GroupToggle } from '../../lib/historyGroup'
 import { useUIStore } from '../../store/useUIStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import {
@@ -163,13 +164,56 @@ function HistoryTable({
   onClear: () => void
   onDelete: (id: string) => void
 }): React.JSX.Element | null {
+  const [grouped, setGrouped] = useState(false)
   if (history.length === 0) return null
+
+  const COLS = 6
+  const renderRow = (rec: DnsHistoryRecord): React.JSX.Element => (
+    <tr key={rec.id} onClick={() => onPick(rec)} title="Load this result"
+      className="border-b border-border-muted/40 last:border-0 hover:bg-canvas-hover/60 cursor-pointer group">
+      <td className="px-3 py-1.5 text-fg-muted whitespace-nowrap">{formatWhen(rec.scannedAt)}</td>
+      <td className="px-3 py-1.5 font-mono text-fg-default">
+        {rec.target}
+        {rec.queriedName !== rec.target && (
+          <span className="text-fg-subtle"> ({rec.queriedName})</span>
+        )}
+      </td>
+      <td className="px-3 py-1.5 font-mono text-fg-subtle">{rec.resolver}</td>
+      <td className="px-3 py-1.5 font-mono text-right">
+        <span className={rec.totalRecords > 0 ? 'text-accent-green' : 'text-fg-subtle'}>
+          {rec.totalRecords}
+        </span>
+      </td>
+      <td className="px-3 py-1.5">
+        <div className="flex flex-wrap gap-1">
+          {rec.typeCounts.length === 0 ? (
+            <span className="text-fg-subtle">—</span>
+          ) : rec.typeCounts.map((t) => (
+            <span key={t.type}
+              className="px-1.5 py-0.5 rounded text-[11px] font-mono font-semibold bg-accent-blue/10 text-accent-blue">
+              {t.type}{t.count > 1 ? `·${t.count}` : ''}
+            </span>
+          ))}
+        </div>
+      </td>
+      <td className="px-2 py-1.5 text-right">
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(rec.id) }}
+          title="Delete this entry"
+          className="p-1 rounded text-fg-subtle opacity-0 group-hover:opacity-100 hover:text-accent-red hover:bg-canvas-hover transition-all">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </td>
+    </tr>
+  )
+
   return (
     <div className="mt-6 border-t border-border-default pt-4">
-      <div className="flex items-center gap-2 mb-2 px-1">
+      <div className="flex items-center gap-3 mb-2 px-1">
         <History className="w-3.5 h-3.5 text-fg-subtle" />
         <span className="text-[12px] font-semibold uppercase tracking-wide text-fg-subtle">Lookup history</span>
         <span className="text-[12px] font-mono text-fg-subtle">{history.length}</span>
+        <GroupToggle grouped={grouped} onToggle={() => setGrouped((g) => !g)} />
         <button onClick={onClear}
           className="ml-auto inline-flex items-center gap-1 text-[12px] text-fg-subtle hover:text-accent-red transition-colors">
           <Trash2 className="w-3.5 h-3.5" /> Clear
@@ -188,44 +232,16 @@ function HistoryTable({
             </tr>
           </thead>
           <tbody>
-            {history.map((rec) => (
-              <tr key={rec.id} onClick={() => onPick(rec)} title="Load this result"
-                className="border-b border-border-muted/40 last:border-0 hover:bg-canvas-hover/60 cursor-pointer group">
-                <td className="px-3 py-1.5 text-fg-muted whitespace-nowrap">{formatWhen(rec.scannedAt)}</td>
-                <td className="px-3 py-1.5 font-mono text-fg-default">
-                  {rec.target}
-                  {rec.queriedName !== rec.target && (
-                    <span className="text-fg-subtle"> ({rec.queriedName})</span>
-                  )}
-                </td>
-                <td className="px-3 py-1.5 font-mono text-fg-subtle">{rec.resolver}</td>
-                <td className="px-3 py-1.5 font-mono text-right">
-                  <span className={rec.totalRecords > 0 ? 'text-accent-green' : 'text-fg-subtle'}>
-                    {rec.totalRecords}
-                  </span>
-                </td>
-                <td className="px-3 py-1.5">
-                  <div className="flex flex-wrap gap-1">
-                    {rec.typeCounts.length === 0 ? (
-                      <span className="text-fg-subtle">—</span>
-                    ) : rec.typeCounts.map((t) => (
-                      <span key={t.type}
-                        className="px-1.5 py-0.5 rounded text-[11px] font-mono font-semibold bg-accent-blue/10 text-accent-blue">
-                        {t.type}{t.count > 1 ? `·${t.count}` : ''}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-2 py-1.5 text-right">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(rec.id) }}
-                    title="Delete this entry"
-                    className="p-1 rounded text-fg-subtle opacity-0 group-hover:opacity-100 hover:text-accent-red hover:bg-canvas-hover transition-all">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {grouped
+              ? groupByKey(history, (r) => r.target).flatMap((g) => [
+                  <tr key={`h-${g.key}`} className="bg-canvas-subtle/70 border-b border-border-muted">
+                    <td colSpan={COLS} className="px-3 py-1 text-[11.5px] font-mono font-semibold text-fg-muted">
+                      {g.key} <span className="text-fg-subtle">· {g.items.length}</span>
+                    </td>
+                  </tr>,
+                  ...g.items.map(renderRow)
+                ])
+              : history.map(renderRow)}
           </tbody>
         </table>
       </div>
