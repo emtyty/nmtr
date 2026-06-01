@@ -113,6 +113,17 @@ asar: true
 asarUnpack:
   - node_modules/koffi/**/*
 
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  icon: build/icon.icns
+  category: public.app-category.utilities
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
 win:
   target:
     - target: nsis
@@ -131,8 +142,4 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: nmtr
 
-publish:
-  provider: github
-  owner: placeholder
-  repo: nmtr
-  releaseType: release
+# publish config is built dynamically in electron-builder.cjs based on env vars
