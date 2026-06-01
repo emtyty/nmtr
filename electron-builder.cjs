@@ -68,7 +68,7 @@ if (R2_RELEASES_ACCOUNT_ID && R2_RELEASES_BUCKET) {
   })
 }
 if (GH_TOKEN) {
-  publish.push({ provider: 'github', releaseType: 'release' })
+  publish.push({ provider: 'github' })
 }
 
 const config = {
