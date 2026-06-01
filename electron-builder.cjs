@@ -8,7 +8,6 @@ const {
   AZURE_TRUSTED_SIGNING_ENDPOINT,
   AZURE_CODE_SIGNING_ACCOUNT_NAME,
   AZURE_CERT_PROFILE_NAME,
-  AZURE_PUBLISHER_NAME,
   R2_RELEASES_ACCOUNT_ID,
   R2_RELEASES_BUCKET,
   GH_TOKEN,
@@ -39,7 +38,6 @@ const allAzureVarsSet = [
   AZURE_TRUSTED_SIGNING_ENDPOINT,
   AZURE_CODE_SIGNING_ACCOUNT_NAME,
   AZURE_CERT_PROFILE_NAME,
-  AZURE_PUBLISHER_NAME,
 ].every(Boolean)
 
 // koffi uses pre-built Rust binaries — no node-gyp binding.gyp present.
@@ -77,7 +75,6 @@ module.exports = allAzureVarsSet
       win: {
         ...base.win,
         azureSignOptions: {
-          publisherName: AZURE_PUBLISHER_NAME,
           endpoint: AZURE_TRUSTED_SIGNING_ENDPOINT,
           codeSigningAccountName: AZURE_CODE_SIGNING_ACCOUNT_NAME,
           certificateProfileName: AZURE_CERT_PROFILE_NAME,
