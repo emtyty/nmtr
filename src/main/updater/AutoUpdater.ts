@@ -3,7 +3,7 @@ import { autoUpdater } from 'electron-updater'
 import { IPC } from '../ipc/channels'
 
 // Don't download automatically — let the user decide
-autoUpdater.autoDownload = false
+autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = true
 
 let win: BrowserWindow | null = null
