@@ -134,6 +134,7 @@ win:
       arch: [x64]
   icon: build/icon.ico
   requestedExecutionLevel: requireAdministrator
+  artifactName: "${productName}-${version}-${arch}.${ext}"
 
 nsis:
   oneClick: false
@@ -143,5 +144,6 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: nmtr
+  artifactName: "${productName}-Setup-${version}.${ext}"
 
 # publish config is built dynamically in electron-builder.cjs based on env vars
