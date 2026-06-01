@@ -51,12 +51,20 @@ const noRebuild = {
 // errors when running locally without R2 / GH credentials.
 const publish = []
 if (R2_RELEASES_ACCOUNT_ID && R2_RELEASES_BUCKET) {
+  // S3 publisher uploads artifacts to R2; publishAutoUpdate:false so it is
+  // NOT embedded in app-update.yml (the S3 API endpoint requires auth).
   publish.push({
     provider: 's3',
     bucket: R2_RELEASES_BUCKET,
     region: 'auto',
     endpoint: `https://${R2_RELEASES_ACCOUNT_ID}.r2.cloudflarestorage.com`,
     acl: null,
+    publishAutoUpdate: false,
+  })
+  // Generic provider uses the public R2 URL — no auth needed by electron-updater.
+  publish.push({
+    provider: 'generic',
+    url: 'https://pub-153a98778378495eb01f90435c7b392a.r2.dev',
   })
 }
 if (GH_TOKEN) {
