@@ -57,7 +57,7 @@
     "underscore": ">=1.13.8",
     "d3-color": ">=3.1.0",
     "lodash": ">=4.17.24",
-    "@xmldom/xmldom": ">=0.8.12",
+    "@xmldom/xmldom": "^0.8.12",
     "tar": ">=7.5.11",
     "@tootallnate/once": ">=3.0.1"
   },
