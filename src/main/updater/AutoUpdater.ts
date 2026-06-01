@@ -14,8 +14,11 @@ function send(channel: string, payload?: unknown): void {
   }
 }
 
+const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000 // 4 hours
+
 export function initAutoUpdater(mainWindow: BrowserWindow): void {
   win = mainWindow
+  setInterval(() => { void checkForUpdates() }, CHECK_INTERVAL_MS)
 
   autoUpdater.on('update-available', (info) => {
     console.log('[AutoUpdater] Update available:', info.version)
