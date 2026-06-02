@@ -58,13 +58,7 @@ if (R2_RELEASES_ACCOUNT_ID && R2_RELEASES_BUCKET) {
     bucket: R2_RELEASES_BUCKET,
     region: 'auto',
     endpoint: `https://${R2_RELEASES_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    acl: null,
-    publishAutoUpdate: false,
-  })
-  // Generic provider uses the public R2 URL — no auth needed by electron-updater.
-  publish.push({
-    provider: 'generic',
-    url: 'https://pub-153a98778378495eb01f90435c7b392a.r2.dev',
+    acl: null
   })
 }
 if (GH_TOKEN) {
