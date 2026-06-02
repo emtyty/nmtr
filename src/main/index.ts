@@ -5,7 +5,7 @@ import { ProberManager } from './prober/ProberManager'
 import { MonitorEngine } from './monitor/MonitorEngine'
 import { TrayManager } from './tray/TrayManager'
 import { AppSettingsStore } from './store/AppSettings'
-import { initAutoUpdater, checkForUpdates } from './updater/AutoUpdater'
+import { UpdateManager } from './updater/UpdateManager'
 import { createLogoIcon } from './utils/logoIcon'
 
 let mainWindow: BrowserWindow | null = null
@@ -101,19 +101,14 @@ app.whenReady().then(async () => {
   // Create window first so mainWindow is non-null when handlers are registered
   createWindow()
 
-  registerHandlers(mainWindow!)
-  initAutoUpdater(mainWindow!)
+  const updater = new UpdateManager(mainWindow!)
+  registerHandlers(mainWindow!, updater)
+  void updater.init()
 
   const startupSettings = AppSettingsStore.get()
 
   // Sync the OS login-item registration with the saved preference.
   applyLaunchAtLogin(startupSettings.launchAtLogin)
-
-  // Auto-check for updates shortly after launch, if enabled (manual button
-  // always works regardless). Delayed so it never competes with first paint.
-  if (startupSettings.checkUpdatesOnStartup) {
-    setTimeout(() => { void checkForUpdates() }, 4000)
-  }
 
   // Start scheduled monitors in the background (reads persisted configs).
   MonitorEngine.start(mainWindow!)

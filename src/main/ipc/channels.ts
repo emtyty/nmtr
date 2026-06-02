@@ -116,12 +116,13 @@ export const IPC = {
 
   // Auto-update (renderer → main invoke)
   UPDATE_CHECK: 'update:check',
-  UPDATE_DOWNLOAD: 'update:download',
   UPDATE_INSTALL: 'update:install',
 
   // Auto-update (main → renderer push)
+  UPDATE_CHECKING: 'update:checking',
   UPDATE_AVAILABLE: 'update:available',
-  UPDATE_PROGRESS: 'update:progress',
+  UPDATE_NOT_AVAILABLE: 'update:not-available',
+  UPDATE_DOWNLOADING: 'update:downloading',
   UPDATE_DOWNLOADED: 'update:downloaded',
   UPDATE_ERROR: 'update:error'
 } as const

@@ -57,13 +57,17 @@ interface UIState {
   closeTracertModal: () => void
 
   // Auto-update
-  updateInfo: { version: string; releaseNotes: string | null } | null
+  updateChecking: boolean
+  updateInfo: { version: string } | null
   updateProgress: number | null // 0–100, null = not downloading
   updateDownloaded: boolean
+  updateNotAvailable: boolean  // true briefly after a manual check finds no update
   updateError: string | null
-  setUpdateInfo: (info: { version: string; releaseNotes: string | null }) => void
+  setUpdateChecking: (manual: boolean) => void
+  setUpdateInfo: (info: { version: string }) => void
+  setUpdateNotAvailable: (manual: boolean) => void
   setUpdateProgress: (percent: number | null) => void
-  setUpdateDownloaded: () => void
+  setUpdateDownloaded: (version: string) => void
   setUpdateError: (message: string | null) => void
 
   runtimeAlerts: RuntimeAlert[]
@@ -109,14 +113,22 @@ export const useUIStore = create<UIState>((set) => ({
   openTracertModal: () => set({ tracertModalOpen: true }),
   closeTracertModal: () => set({ tracertModalOpen: false }),
 
+  updateChecking: false,
   updateInfo: null,
   updateProgress: null,
   updateDownloaded: false,
+  updateNotAvailable: false,
   updateError: null,
-  setUpdateInfo: (info) => set({ updateInfo: info, updateError: null }),
+  setUpdateChecking: (manual) => set({ updateChecking: manual, updateError: null }),
+  setUpdateInfo: (info) => set({ updateInfo: info, updateChecking: false, updateError: null }),
+  setUpdateNotAvailable: (manual) => {
+    if (!manual) return
+    set({ updateNotAvailable: true, updateChecking: false })
+    setTimeout(() => set({ updateNotAvailable: false }), 3000)
+  },
   setUpdateProgress: (percent) => set({ updateProgress: percent }),
-  setUpdateDownloaded: () => set({ updateDownloaded: true, updateProgress: null }),
-  setUpdateError: (message) => set({ updateError: message, updateProgress: null }),
+  setUpdateDownloaded: (version) => set({ updateDownloaded: true, updateProgress: null, updateInfo: { version } }),
+  setUpdateError: (message) => set({ updateError: message, updateProgress: null, updateChecking: false }),
 
   runtimeAlerts: [],
   pushRuntimeAlert: (alert) => set((state) => ({

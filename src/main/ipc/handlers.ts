@@ -7,7 +7,7 @@ import { AppSettingsStore } from '../store/AppSettings'
 import { HistoryStore } from '../store/HistoryStore'
 import { formatExport } from '../export/ExportFormatter'
 import { SessionPlayer } from '../recording/SessionPlayer'
-import { checkForUpdates, downloadUpdate, quitAndInstall } from '../updater/AutoUpdater'
+import { UpdateManager } from '../updater/UpdateManager'
 import { scanLan } from '../lan/LanScanner'
 import { checkNmap, startPortScan, cancelPortScan } from '../portscan/PortScanner'
 import { PortScanStore } from '../store/PortScanStore'
@@ -87,7 +87,7 @@ export function applyLaunchAtLogin(enabled: boolean): void {
   }
 }
 
-export function registerHandlers(win: BrowserWindow): void {
+export function registerHandlers(win: BrowserWindow, updater: UpdateManager): void {
   ProberManager.setWindow(win)
 
   // ── Trace ──────────────────────────────────────────────────────────────────
@@ -528,14 +528,14 @@ export function registerHandlers(win: BrowserWindow): void {
 
   // ── Auto-update ────────────────────────────────────────────────────────────
   ipcMain.handle(IPC.UPDATE_CHECK, async () => {
-    await checkForUpdates()
-  })
-
-  ipcMain.handle(IPC.UPDATE_DOWNLOAD, async () => {
-    await downloadUpdate()
+    if (!updater.isCapable()) {
+      win.webContents.send(IPC.UPDATE_NOT_AVAILABLE, { version: '', manual: true })
+      return
+    }
+    await updater.checkForUpdates(true)
   })
 
   ipcMain.handle(IPC.UPDATE_INSTALL, () => {
-    quitAndInstall()
+    updater.quitAndInstall()
   })
 }

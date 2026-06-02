@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Plus, Trash2, RotateCcw, Server } from 'lucide-react'
 import { useSettingsStore } from '../../store/useSettingsStore'
+import { useUIStore } from '../../store/useUIStore'
 import type { AppSettings, Theme, Protocol, DnsResolverPreset } from '@shared/types'
 import { DEFAULT_DNS_RESOLVERS } from '@shared/types'
 
@@ -12,6 +13,7 @@ interface SettingsDialogProps {
 
 export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JSX.Element {
   const { settings, update } = useSettingsStore()
+  const updateChecking = useUIStore((s) => s.updateChecking)
   const [draft, setDraft] = useState<AppSettings>(settings)
   const [tab, setTab] = useState<'general' | 'trace' | 'dns' | 'turn'>('general')
 
@@ -388,9 +390,10 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): React.JS
           <div className="flex items-center justify-between px-4 py-3 border-t border-border-default">
             <button
               className="px-3 py-1.5 rounded border border-border-default text-xs text-fg-muted hover:border-fg-muted hover:text-fg-default transition-colors"
-              onClick={() => window.nmtrAPI.checkForUpdates()}
+              onClick={() => void window.nmtrAPI.checkForUpdates()}
+              disabled={updateChecking}
             >
-              Check for Updates
+              {updateChecking ? 'Checking…' : 'Check for Updates'}
             </button>
             <div className="flex gap-2">
               <button

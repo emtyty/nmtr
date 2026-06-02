@@ -277,15 +277,18 @@ const nmtrAPI = {
 
   // ── Auto-update ────────────────────────────────────────────────────────────
   checkForUpdates: (): Promise<void> => ipcRenderer.invoke(IPC.UPDATE_CHECK),
-  downloadUpdate: (): Promise<void> => ipcRenderer.invoke(IPC.UPDATE_DOWNLOAD),
   installUpdate: (): Promise<void> => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
-  onUpdateAvailable: (cb: (e: { version: string; releaseNotes: string | null }) => void): Unsubscribe =>
+  onUpdateChecking: (cb: (e: { manual: boolean }) => void): Unsubscribe =>
+    on(IPC.UPDATE_CHECKING, cb),
+  onUpdateAvailable: (cb: (e: { version: string; manual: boolean }) => void): Unsubscribe =>
     on(IPC.UPDATE_AVAILABLE, cb),
-  onUpdateProgress: (cb: (e: { percent: number }) => void): Unsubscribe =>
-    on(IPC.UPDATE_PROGRESS, cb),
-  onUpdateDownloaded: (cb: () => void): Unsubscribe =>
+  onUpdateNotAvailable: (cb: (e: { version: string; manual: boolean }) => void): Unsubscribe =>
+    on(IPC.UPDATE_NOT_AVAILABLE, cb),
+  onUpdateDownloading: (cb: (e: { percent: number }) => void): Unsubscribe =>
+    on(IPC.UPDATE_DOWNLOADING, cb),
+  onUpdateDownloaded: (cb: (e: { version: string }) => void): Unsubscribe =>
     on(IPC.UPDATE_DOWNLOADED, cb),
-  onUpdateError: (cb: (e: { message: string }) => void): Unsubscribe =>
+  onUpdateError: (cb: (e: { message: string; manual: boolean }) => void): Unsubscribe =>
     on(IPC.UPDATE_ERROR, cb)
 }
 
