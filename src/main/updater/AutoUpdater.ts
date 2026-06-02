@@ -2,8 +2,8 @@ import type { BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { IPC } from '../ipc/channels'
 
-// Don't download automatically — let the user decide
-autoUpdater.autoDownload = true
+// Don't download automatically — let the user decide via the UpdateBanner
+autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
 
 let win: BrowserWindow | null = null
