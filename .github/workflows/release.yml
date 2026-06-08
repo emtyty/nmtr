@@ -119,3 +119,22 @@ jobs:
 
           # Optional: reduce Azure CLI output in logs
           AZURE_CORE_OUTPUT: none
+
+  prune:
+    environment: Production
+    name: Prune old R2 releases
+    runs-on: ubuntu-latest
+    # Only prune once BOTH platform builds have published this version, so we
+    # never delete an old version before the new artifacts/manifests land.
+    needs: [build-mac, build-win]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prune stale release artifacts (keep newest 2 versions)
+        run: bash scripts/prune-r2-releases.sh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_RELEASES_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_RELEASES_SECRET_ACCESS_KEY }}
+          R2_RELEASES_ACCOUNT_ID: ${{ secrets.R2_RELEASES_ACCOUNT_ID }}
+          R2_RELEASES_BUCKET: ${{ secrets.R2_RELEASES_BUCKET }}
+          KEEP: '2'
